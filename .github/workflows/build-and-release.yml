@@ -29,7 +29,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path "lib" | Out-Null
-          $refUrl = "https://github.com/${{ github.repository }}/releases/download/simhub-refs-v9/simhub-references.zip"
+          $refUrl = "https://raw.githubusercontent.com/${{ github.repository }}/binary-deps/simhub-references.zip"
           Write-Host "Fetching SimHub reference assemblies from: $refUrl"
           try {
             Invoke-WebRequest -Uri $refUrl -OutFile "simhub-references.zip" -TimeoutSec 45
@@ -38,7 +38,7 @@ jobs:
           } catch {
             Write-Warning "Could not download hosted reference zip ($refUrl). Reason: $_"
             if (-not (Test-Path "lib\SimHub.Plugins.dll")) {
-              throw "SimHub references not found. Please ensure the release asset 'simhub-refs-v9/simhub-references.zip' exists on the repository."
+              throw "SimHub references not found. Please ensure the reference asset is available on the 'binary-deps' branch."
             }
           }
 
