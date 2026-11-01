@@ -1,0 +1,94 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ master, main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & Package Plugin
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Download & Extract SimHub References
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "lib" | Out-Null
+          $refUrl = "https://github.com/${{ github.repository }}/releases/download/simhub-refs-v9/simhub-references.zip"
+          Write-Host "Fetching SimHub reference assemblies from: $refUrl"
+          try {
+            Invoke-WebRequest -Uri $refUrl -OutFile "simhub-references.zip" -TimeoutSec 45
+            Expand-Archive -Path "simhub-references.zip" -DestinationPath "lib" -Force
+            Write-Host "SimHub reference assemblies extracted successfully to lib/."
+          } catch {
+            Write-Warning "Could not download hosted reference zip ($refUrl). Reason: $_"
+            if (-not (Test-Path "lib\SimHub.Plugins.dll")) {
+              throw "SimHub references not found. Please ensure the release asset 'simhub-refs-v9/simhub-references.zip' exists on the repository."
+            }
+          }
+
+      - name: Build SimHub.GRebels (Release)
+        run: dotnet build SimHub.GRebels.csproj -c Release
+
+      - name: Package Release Distribution
+        shell: pwsh
+        run: |
+          # Determine release version
+          if ($env:GITHUB_REF -like "refs/tags/v*") {
+            $tagVersion = $env:GITHUB_REF.Substring(10)
+            $zipName = "SimHub.GRebels-$tagVersion.zip"
+          } else {
+            $shortSha = $env:GITHUB_SHA.Substring(0, 7)
+            $zipName = "SimHub.GRebels-CI-$shortSha.zip"
+          }
+          
+          $distDir = "dist/SimHub.GRebels"
+          New-Item -ItemType Directory -Force -Path $distDir | Out-Null
+          
+          # Plugin binaries & descriptors
+          Copy-Item "bin/Release/SimHub.GRebels.dll" -Destination $distDir
+          Copy-Item "bin/Release/SimHub.GRebels.pdb" -Destination $distDir
+          Copy-Item "bin/Release/SimHub.GRebels.json" -Destination $distDir
+          
+          # Dashboards and shaker profiles
+          Copy-Item "docs/G-Rebels Tactical HUD.simhubdash" -Destination $distDir
+          Copy-Item "docs/G-Rebels - Single Shaker.siprofile" -Destination $distDir
+          
+          # Documentation & licensing
+          Copy-Item "README.md" -Destination $distDir
+          Copy-Item "LICENSE" -Destination $distDir
+          
+          # Create zip
+          Compress-Archive -Path "$distDir/*" -DestinationPath $zipName -Force
+          Write-Host "Created release package: $zipName"
+          
+          echo "RELEASE_ZIP=$zipName" >> $env:GITHUB_ENV
+
+      - name: Upload CI Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.RELEASE_ZIP }}
+          path: ${{ env.RELEASE_ZIP }}
+          retention-days: 14
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.RELEASE_ZIP }}
+          generate_release_notes: true

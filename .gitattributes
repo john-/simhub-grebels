@@ -1,0 +1,20 @@
+# Auto-detect text files and normalize line endings to LF in the repo
+* text=auto
+
+# Source code and config files: LF in repo, checkout as OS-native (CRLF on Windows)
+*.cs text
+*.json text
+*.md text
+*.xml text
+*.csproj text
+*.sln text
+
+# Windows batch files must retain CRLF line endings
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary files
+*.dll binary
+*.exe binary
+*.png binary
+*.jpg binary

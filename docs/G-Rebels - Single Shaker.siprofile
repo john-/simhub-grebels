@@ -1,0 +1,291 @@
+{
+  "CarChoices": [],
+  "IncludeOutputSettingsInProfile": false,
+  "UnmuteEffectsAfterSimhubRestart": true,
+  "EffectsContainers": [
+    {
+      "ContainerType": "CustomEffectContainer",
+      "IsEnabled": true,
+      "Gain": 72.85714285714305,
+      "Description": "Cannon",
+      "FrontLeftFormula": {
+        "JSExt": 0,
+        "Interpreter": 1,
+        "Expression": "return $prop('GRebelsTelemetryPlugin.GRebels.PrimaryFired');\r\n"
+      },
+      "FrontRightFormula": {
+        "Expression": ""
+      },
+      "RearLeftFormula": {
+        "Expression": ""
+      },
+      "RearRightFormula": {
+        "Expression": ""
+      },
+      "ForceFrequencies": false,
+      "FrontLeftFrequencyFormula": {
+        "Expression": ""
+      },
+      "FrontRightFrequencyFormula": {
+        "Expression": ""
+      },
+      "RearLeftFrequencyFormula": {
+        "Expression": ""
+      },
+      "RearRightFrequencyFormula": {
+        "Expression": ""
+      },
+      "AlwaysExecute": false,
+      "ContainerId": "632e48ef-3c68-42d2-826d-f37b471d6f92",
+      "AggregationMode": "Mono",
+      "Filter": {
+        "GammaValue": 1.0,
+        "InputGain": 100.0,
+        "MinimumForce": 0,
+        "Threshold": 0,
+        "FilterType": "GammaFilter"
+      },
+      "Output": {
+        "UseHighFrequency": false,
+        "HighFrequency": 50,
+        "WhiteNoise": 10,
+        "UseWhiteNoise": false,
+        "FrequencyBasedOnPreFilter": false,
+        "UsePrehemptiveMode": false,
+        "Frequency": 80,
+        "AssignToChannelGroup": false,
+        "ChannelGroupName": null,
+        "OutputType": "ToneOutput"
+      }
+    },
+    {
+      "ContainerType": "CustomEffectContainer",
+      "IsEnabled": true,
+      "Gain": 72.38095238095265,
+      "Description": "Missile",
+      "FrontLeftFormula": {
+        "JSExt": 0,
+        "Interpreter": 1,
+        "Expression": "return $prop('GRebelsTelemetryPlugin.GRebels.SecondaryFired');\r\n"
+      },
+      "FrontRightFormula": {
+        "Expression": ""
+      },
+      "RearLeftFormula": {
+        "Expression": ""
+      },
+      "RearRightFormula": {
+        "Expression": ""
+      },
+      "ForceFrequencies": false,
+      "FrontLeftFrequencyFormula": {
+        "Expression": ""
+      },
+      "FrontRightFrequencyFormula": {
+        "Expression": ""
+      },
+      "RearLeftFrequencyFormula": {
+        "Expression": ""
+      },
+      "RearRightFrequencyFormula": {
+        "Expression": ""
+      },
+      "AlwaysExecute": false,
+      "ContainerId": "f9041883-1eb7-4512-972a-ecba6211bc0d",
+      "AggregationMode": "Mono",
+      "Filter": {
+        "GammaValue": 1.0,
+        "InputGain": 100.0,
+        "MinimumForce": 0,
+        "Threshold": 0,
+        "FilterType": "GammaFilter"
+      },
+      "Output": {
+        "UseHighFrequency": false,
+        "HighFrequency": 50,
+        "WhiteNoise": 10,
+        "UseWhiteNoise": false,
+        "FrequencyBasedOnPreFilter": false,
+        "UsePrehemptiveMode": false,
+        "Frequency": 44,
+        "AssignToChannelGroup": false,
+        "ChannelGroupName": null,
+        "OutputType": "ToneOutput"
+      }
+    },
+    {
+      "ContainerType": "CustomEffectContainer",
+      "IsEnabled": true,
+      "Gain": 24.28571428571433,
+      "Description": "Hits",
+      "FrontLeftFormula": {
+        "JSExt": 0,
+        "Interpreter": 1,
+        "Expression": "return $prop('GRebelsTelemetryPlugin.GRebels.HitImpulse');\r\n\r\n"
+      },
+      "FrontRightFormula": {
+        "Expression": ""
+      },
+      "RearLeftFormula": {
+        "Expression": ""
+      },
+      "RearRightFormula": {
+        "Expression": ""
+      },
+      "ForceFrequencies": false,
+      "FrontLeftFrequencyFormula": {
+        "Expression": ""
+      },
+      "FrontRightFrequencyFormula": {
+        "Expression": ""
+      },
+      "RearLeftFrequencyFormula": {
+        "Expression": ""
+      },
+      "RearRightFrequencyFormula": {
+        "Expression": ""
+      },
+      "AlwaysExecute": false,
+      "ContainerId": "55cb2580-c05b-41a8-aecf-23a198a7c9ae",
+      "AggregationMode": "Mono",
+      "Filter": {
+        "GammaValue": 1.0,
+        "InputGain": 100.0,
+        "MinimumForce": 0,
+        "Threshold": 0,
+        "FilterType": "GammaFilter"
+      },
+      "Output": {
+        "UseHighFrequency": false,
+        "HighFrequency": 50,
+        "WhiteNoise": 10,
+        "UseWhiteNoise": true,
+        "FrequencyBasedOnPreFilter": false,
+        "UsePrehemptiveMode": false,
+        "Frequency": 60,
+        "ChannelGroupName": null,
+        "OutputType": "ToneOutput",
+        "AssignToChannelGroup": false
+      }
+    },
+    {
+      "ContainerType": "CustomEffectContainer",
+      "IsEnabled": true,
+      "Gain": 90.0,
+      "Description": "Collisions",
+      "FrontLeftFormula": {
+        "JSExt": 0,
+        "Interpreter": 1,
+        "Expression": "// return $prop('GRebelsTelemetryPlugin.GRebels.CollisionLastStrength')\r\nreturn $prop('GRebelsTelemetryPlugin.GRebels.CollisionImpulse')"
+      },
+      "FrontRightFormula": {
+        "Expression": ""
+      },
+      "RearLeftFormula": {
+        "Expression": ""
+      },
+      "RearRightFormula": {
+        "Expression": ""
+      },
+      "ForceFrequencies": false,
+      "FrontLeftFrequencyFormula": {
+        "Expression": ""
+      },
+      "FrontRightFrequencyFormula": {
+        "Expression": ""
+      },
+      "RearLeftFrequencyFormula": {
+        "Expression": ""
+      },
+      "RearRightFrequencyFormula": {
+        "Expression": ""
+      },
+      "AlwaysExecute": false,
+      "ContainerId": "97bd76f7-daf6-40f8-a8c2-76ef93a8bcc7",
+      "AggregationMode": "Mono",
+      "Filter": {
+        "GammaValue": 1.0,
+        "InputGain": 100.0,
+        "MinimumForce": 16,
+        "Threshold": 0,
+        "FilterType": "GammaFilter"
+      },
+      "Output": {
+        "UseHighFrequency": false,
+        "HighFrequency": 50,
+        "WhiteNoise": 10,
+        "UseWhiteNoise": false,
+        "FrequencyBasedOnPreFilter": false,
+        "UsePrehemptiveMode": false,
+        "Frequency": 44,
+        "OutputType": "ToneOutput",
+        "AssignToChannelGroup": false,
+        "ChannelGroupName": null
+      }
+    },
+    {
+      "ContainerType": "CustomEffectContainer",
+      "IsEnabled": true,
+      "Gain": 23.333333333333375,
+      "Description": "Throttle",
+      "FrontLeftFormula": {
+        "JSExt": 0,
+        "Interpreter": 1,
+        "Expression": "return Math.abs($prop('GRebelsTelemetryPlugin.GRebels.ThrottleTotalPercent'))"
+      },
+      "FrontRightFormula": {
+        "JSExt": 0,
+        "Interpreter": 1,
+        "Expression": ""
+      },
+      "RearLeftFormula": {
+        "Expression": ""
+      },
+      "RearRightFormula": {
+        "Expression": ""
+      },
+      "ForceFrequencies": false,
+      "FrontLeftFrequencyFormula": {
+        "Expression": ""
+      },
+      "FrontRightFrequencyFormula": {
+        "Expression": ""
+      },
+      "RearLeftFrequencyFormula": {
+        "Expression": ""
+      },
+      "RearRightFrequencyFormula": {
+        "Expression": ""
+      },
+      "AlwaysExecute": false,
+      "ContainerId": "979f6457-bc12-4547-a7f2-0b6a163af49e",
+      "AggregationMode": "Mono",
+      "Filter": {
+        "GammaValue": 1.0,
+        "InputGain": 95.0,
+        "MinimumForce": 0,
+        "Threshold": 70,
+        "FilterType": "GammaFilter"
+      },
+      "Output": {
+        "UseHighFrequency": false,
+        "HighFrequency": 50,
+        "WhiteNoise": 10,
+        "UseWhiteNoise": false,
+        "FrequencyBasedOnPreFilter": false,
+        "UsePrehemptiveMode": false,
+        "Frequency": 44,
+        "OutputType": "ToneOutput"
+      }
+    }
+  ],
+  "AutoCalibrationRatio2": 100,
+  "OutputMode": 1,
+  "GlobalGain": 50.0,
+  "UseProfileGain": false,
+  "LastLoaded": "0001-01-01T00:00:00",
+  "Name": "G-Rebels (Single Shaker)",
+  "ProfileId": "39342e7f-eda5-4503-a480-e86318e07031",
+  "GameCode": null,
+  "CarChoice": null
+}

@@ -1,0 +1,10 @@
+## Build results
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+## Local reference assemblies & packages
+[Ll]ib/
+[Ll]ibs/
+*.zip

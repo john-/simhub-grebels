@@ -1,0 +1,63 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <AssemblyName>SimHub.GRebels</AssemblyName>
+    <RootNamespace>SimHub.GRebels</RootNamespace>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <DebugType>portable</DebugType>
+    <LangVersion>latest</LangVersion>
+    <Version>1.0.0</Version>
+    <Description>SimHub Telemetry Plugin for G-Rebels</Description>
+
+    <!-- Priority 1: Environment variable if passed (SIMHUB_DIR) -->
+    <SimHubPath Condition="'$(SimHubPath)' == '' and '$(SIMHUB_DIR)' != ''">$(SIMHUB_DIR)</SimHubPath>
+
+    <!-- Priority 2: Auto-detect standard SimHub install locations (local dev machines) -->
+    <SimHubPath Condition="'$(SimHubPath)' == '' and Exists('/mnt/c/Program Files (x86)/SimHub/SimHub.Plugins.dll')">/mnt/c/Program Files (x86)/SimHub/</SimHubPath>
+    <SimHubPath Condition="'$(SimHubPath)' == '' and Exists('C:\Program Files (x86)\SimHub\SimHub.Plugins.dll')">C:\Program Files (x86)\SimHub\</SimHubPath>
+
+    <!-- Priority 3: Fall back to local lib/ folder if user or CI extracted references there -->
+    <SimHubPath Condition="'$(SimHubPath)' == '' and Exists('$(MSBuildThisFileDirectory)lib\SimHub.Plugins.dll')">$(MSBuildThisFileDirectory)lib\</SimHubPath>
+
+    <!-- Default fallback -->
+    <SimHubPath Condition="'$(SimHubPath)' == ''">C:\Program Files (x86)\SimHub\</SimHubPath>
+    <_SimHubPath>$([MSBuild]::EnsureTrailingSlash('$(SimHubPath)'))</_SimHubPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="SimHub.Plugins">
+      <HintPath>$(_SimHubPath)SimHub.Plugins.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="GameReaderCommon">
+      <HintPath>$(_SimHubPath)GameReaderCommon.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="SimHub.Logging">
+      <HintPath>$(_SimHubPath)SimHub.Logging.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
+    <Reference Include="WindowsBase" />
+    <Reference Include="System.Xaml" />
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>$(_SimHubPath)Newtonsoft.Json.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="log4net">
+      <HintPath>$(_SimHubPath)log4net.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="SimHub.GRebels.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
