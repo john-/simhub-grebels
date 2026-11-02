@@ -2,13 +2,16 @@
 
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
+    <UseWPF>true</UseWPF>
     <AssemblyName>SimHub.GRebels</AssemblyName>
     <RootNamespace>SimHub.GRebels</RootNamespace>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <DebugType>portable</DebugType>
     <LangVersion>latest</LangVersion>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
+    <Authors>John</Authors>
     <Description>SimHub Telemetry Plugin for G-Rebels</Description>
+    <PackageProjectUrl>https://github.com/john-/simhub-grebels</PackageProjectUrl>
 
     <!-- Priority 1: Environment variable if passed (SIMHUB_DIR) -->
     <SimHubPath Condition="'$(SimHubPath)' == '' and '$(SIMHUB_DIR)' != ''">$(SIMHUB_DIR)</SimHubPath>
@@ -27,6 +30,10 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="assets\menu_icon.png" />
   </ItemGroup>
 
   <ItemGroup>

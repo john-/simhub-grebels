@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using GameReaderCommon;
 using SimHub.Plugins;
 
@@ -19,12 +20,16 @@ namespace SimHub.GRebels
     /// The field map is external precisely because the modified format is not
     /// publicly documented; see SimHub.GRebels.json.
     /// </summary>
-    [PluginDescription("Reads G-Rebels UDP telemetry and exposes it to SimHub")]
-    [PluginAuthor("john")]
+    [PluginDescription("Reads G-Rebels UDP telemetry and exposes it to SimHub. GitHub: https://github.com/john-/simhub-grebels")]
+    [PluginAuthor("John")]
     [PluginName("G-Rebels Telemetry")]
     public class GRebelsTelemetryPlugin : IPlugin, IDataPlugin, IWPFSettingsV2
     {
         public const string PropertyPrefix = "GRebels.";
+
+        public static string PluginVersion { get; } = ResolvePluginVersion();
+
+        private static ImageSource _cachedIcon;
 
         private TelemetryReceiver _receiver;
         private PluginSettings _settings;
@@ -37,7 +42,37 @@ namespace SimHub.GRebels
         public PluginSettings Settings => _settings;
         public bool IsFeedStale => IsStale();
 
-        public ImageSource PictureIcon => null;
+        public ImageSource PictureIcon
+        {
+            get
+            {
+                if (_cachedIcon == null)
+                {
+                    try
+                    {
+                        var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+                        using (var stream = assembly.GetManifestResourceStream("SimHub.GRebels.assets.menu_icon.png"))
+                        {
+                            if (stream != null)
+                            {
+                                var bmp = new BitmapImage();
+                                bmp.BeginInit();
+                                bmp.StreamSource = stream;
+                                bmp.CacheOption = BitmapCacheOption.OnLoad;
+                                bmp.EndInit();
+                                bmp.Freeze();
+                                _cachedIcon = bmp;
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // Fallback safely if resource stream loading is unavailable
+                    }
+                }
+                return _cachedIcon;
+            }
+        }
 
         public string LeftMenuTitle { get { return "G-Rebels"; } }
 
@@ -52,6 +87,8 @@ namespace SimHub.GRebels
 
         public void Init(PluginManager pluginManager)
         {
+            global::SimHub.Logging.Current.Info("[SimHubGRebels] Initializing plugin version " + PluginVersion);
+
             _configPath = Path.Combine(
                 Path.GetDirectoryName(typeof(GRebelsTelemetryPlugin).Assembly.Location) ?? ".",
                 "SimHub.GRebels.json");
@@ -142,6 +179,7 @@ namespace SimHub.GRebels
             }
 
             Attach("PacketCount", () => (object)(_receiver?.PacketCount ?? 0));
+            Attach("PluginVersion", () => (object)PluginVersion);
             Attach("PacketRate", () => (object)(_receiver?.PacketsPerSecond ?? 0.0));
             Attach("LastPacketSize", () => (object)(_receiver?.LastLength ?? 0));
             Attach("PacketLengths", () => (object)(_receiver?.DescribeLengths() ?? "none"));
@@ -230,6 +268,51 @@ namespace SimHub.GRebels
         private void Attach(string name, Func<object> provider)
         {
             this.AttachDelegate(name: PropertyPrefix + name, valueProvider: provider);
+        }
+
+        private static string ResolvePluginVersion()
+        {
+            try
+            {
+                var assembly = typeof(GRebelsTelemetryPlugin).Assembly;
+                var infoAttr = (System.Reflection.AssemblyInformationalVersionAttribute)
+                    Attribute.GetCustomAttribute(assembly, typeof(System.Reflection.AssemblyInformationalVersionAttribute));
+
+                if (infoAttr != null && !string.IsNullOrWhiteSpace(infoAttr.InformationalVersion))
+                {
+                    string info = infoAttr.InformationalVersion.Trim();
+                    int plusIdx = info.IndexOf('+');
+                    if (plusIdx >= 0)
+                    {
+                        string ver = info.Substring(0, plusIdx).Trim();
+                        string commit = info.Substring(plusIdx + 1).Trim();
+                        string shortCommit = commit.Length > 7 ? commit.Substring(0, 7) : commit;
+
+                        if (string.IsNullOrEmpty(ver) || ver == "1.0.0.0" || ver == "0.0.0" || ver == "1.0.0")
+                        {
+                            return !string.IsNullOrEmpty(shortCommit)
+                                ? (!string.IsNullOrEmpty(ver) ? $"{ver} ({shortCommit})" : shortCommit)
+                                : ver;
+                        }
+
+                        return !string.IsNullOrEmpty(shortCommit) ? $"{ver} ({shortCommit})" : ver;
+                    }
+
+                    return info;
+                }
+
+                var verAttr = assembly.GetName().Version;
+                if (verAttr != null)
+                {
+                    return verAttr.ToString();
+                }
+            }
+            catch
+            {
+                // Fallback gracefully if reflection fails
+            }
+
+            return "Unknown";
         }
     }
 }

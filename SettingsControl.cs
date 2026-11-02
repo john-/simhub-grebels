@@ -1,7 +1,9 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Threading;
 
@@ -13,6 +15,7 @@ namespace SimHub.GRebels
         private readonly DispatcherTimer _timer;
 
         private TextBlock _tbStatus;
+        private TextBlock _tbVersion;
         private TextBlock _tbBind;
         private TextBlock _tbPackets;
         private TextBlock _tbRate;
@@ -41,6 +44,11 @@ namespace SimHub.GRebels
 
         private void UpdateEndpointText()
         {
+            if (_tbVersion != null)
+            {
+                _tbVersion.Text = GRebelsTelemetryPlugin.PluginVersion;
+            }
+
             var s = _plugin?.Settings;
             if (s != null && _tbBind != null)
             {
@@ -57,16 +65,35 @@ namespace SimHub.GRebels
 
             var stack = new StackPanel();
 
-            // Header
+            // Header with Icon
+            var headerPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Margin = new Thickness(0, 0, 0, 15)
+            };
+
+            if (_plugin?.PictureIcon != null)
+            {
+                var img = new Image
+                {
+                    Source = _plugin.PictureIcon,
+                    Height = 36,
+                    Margin = new Thickness(0, 0, 12, 0),
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                headerPanel.Children.Add(img);
+            }
+
             var header = new TextBlock
             {
                 Text = "G-Rebels Telemetry Plugin",
                 FontSize = 22,
                 FontWeight = FontWeights.Bold,
                 Foreground = Brushes.White,
-                Margin = new Thickness(0, 0, 0, 15)
+                VerticalAlignment = VerticalAlignment.Center
             };
-            stack.Children.Add(header);
+            headerPanel.Children.Add(header);
+            stack.Children.Add(headerPanel);
 
             // Subtitle
             var subtitle = new TextBlock
@@ -120,6 +147,7 @@ namespace SimHub.GRebels
                 row++;
             }
 
+            AddRow("Plugin Version:", out _tbVersion);
             AddRow("Receiver Status:", out _tbStatus);
             AddRow("UDP Endpoint:", out _tbBind);
             AddRow("Packets Received:", out _tbPackets);
@@ -141,6 +169,29 @@ namespace SimHub.GRebels
                 Margin = new Thickness(0, 10, 0, 0)
             };
             stack.Children.Add(note);
+
+            // GitHub link
+            var linkBlock = new TextBlock
+            {
+                Margin = new Thickness(0, 15, 0, 0),
+                FontSize = 12
+            };
+            var hyperlink = new Hyperlink(new Run("GitHub Repository & Documentation (github.com/john-/simhub-grebels)"))
+            {
+                NavigateUri = new Uri("https://github.com/john-/simhub-grebels"),
+                Foreground = new SolidColorBrush(Color.FromRgb(0x58, 0xa6, 0xff))
+            };
+            hyperlink.RequestNavigate += (s, e) =>
+            {
+                try
+                {
+                    Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true });
+                }
+                catch { }
+                e.Handled = true;
+            };
+            linkBlock.Inlines.Add(hyperlink);
+            stack.Children.Add(linkBlock);
 
             root.Children.Add(stack);
             Content = root;

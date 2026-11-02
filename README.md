@@ -40,9 +40,10 @@ This plugin listens for incoming UDP telemetry packets from G-Rebels, parses the
    ```text
    C:\Program Files (x86)\SimHub\
    ```
-4. If updating from a legacy installation, remove any previous `GRebelsSimHub.dll` and `GRebelsSimHub.json` from the SimHub folder to prevent dual-plugin UDP conflicts.
+4. If using another G-Rebels plugin, you may need to disable it to avoid conflicts.
 5. Launch SimHub. If prompted to enable the newly detected plugin **G-Rebels Telemetry**, click **Yes**.
-   - You can also enable or disable it anytime in SimHub under **Settings > Plugins**.
+   - You can also enable or disable it anytime in SimHub by clicking **Add / Remove features** in the left sidebar and toggling **G-Rebels Telemetry**. Once enabled, a **G-Rebels** tab appears in the left navigation sidebar.
+   - *(Optional)* To pin G-Rebels directly to the SimHub main menu, open **Add / Remove features** and select **Show in left main menu** for the G-Rebels entry.
 
 ---
 
@@ -127,6 +128,7 @@ The plugin triggers native SimHub events that can be directly mapped to ShakeIt 
 ### Diagnostics & Connection State
 | Property | Type | Description |
 |---|---|---|
+| `GRebels.PluginVersion` | String | Installed plugin version and git commit hash (e.g. `1.0.0 (025443e)`). |
 | `GRebels.PacketCount` | Integer | Total telemetry packets received. |
 | `GRebels.PacketRate` | Double | Live telemetry rate in packets per second (Hz). |
 | `GRebels.FeedStale` | Boolean | `true` when no packet has arrived within `StaleSeconds`. |
@@ -264,7 +266,8 @@ There is a batch script (`deploy.bat`) to automate copying build artifacts into 
    - `SimHub.GRebels.json` (must reside next to the DLL)
 5. **Launch SimHub**:
    - If prompted to enable the newly detected plugin **G-Rebels Telemetry**, select **Yes**.
-   - Verify the plugin is active under **Settings > Plugins**.
+   - Verify the plugin is active in the left sidebar (under **Add / Remove features** or by clicking the **G-Rebels** tab).
+   - *(Optional)* Under **Add / Remove features**, check **Show in left main menu** for G-Rebels to keep it pinned in the main sidebar.
    - Confirm that `GRebels.*` properties appear in the SimHub Available Properties list.
 
 ### Manual Removal
