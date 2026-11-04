@@ -77,6 +77,12 @@ namespace SimHub.GRebels
         private DateTime _lastCollisionFireUtc = DateTime.MinValue;
         private double _lastCollisionStrength = 0.0;
         public double LastCollisionStrength => _lastCollisionStrength;
+        public string LastCollisionDirection => _lastCollisionDirection;
+        public int LastCollisionDirectionCode => _lastCollisionDirectionCode;
+        public DateTime LastHitFireUtc => _lastHitFireUtc;
+        public DateTime LastCollisionFireUtc => _lastCollisionFireUtc;
+        public DateTime LastPrimaryFireUtc => _lastPrimaryFireUtc;
+        public DateTime LastSecondaryFireUtc => _lastSecondaryFireUtc;
         private double? _prevVx;
         private double? _prevVy;
         private double? _prevVz;
@@ -283,6 +289,77 @@ namespace SimHub.GRebels
             }
         }
 
+        /// <summary>
+        /// Ingests a single raw packet and updates frame state, weapon pulses, and edge detection.
+        /// Exposed internally for deterministic testing without starting a UDP network thread.
+        /// </summary>
+        internal void IngestPacket(byte[] payload, long sequence = 0, DateTime? packetTimeUtc = null)
+        {
+            if (payload == null || payload.Length == 0) return;
+
+            int count = payload.Length;
+
+            if (_compiledMap.ExpectedSize.HasValue &&
+                _compiledMap.ExpectedSize.Value != count)
+            {
+                _lengthMismatchCount++;
+            }
+
+            lock (_lengthsLock)
+            {
+                int seen;
+                _lengthCounts.TryGetValue(count, out seen);
+                _lengthCounts[count] = seen + 1;
+            }
+
+            var now = packetTimeUtc ?? DateTime.UtcNow;
+            if (_lastPacketUtc != DateTime.MinValue && (now - _lastPacketUtc).TotalSeconds > _settings.StaleSeconds)
+            {
+                // Stale feed resumed: reset previous values to prevent false edge/fire events,
+                // but preserve session baselines across pauses
+                _prevPrimaryCount = null;
+                _prevSecondaryCount = null;
+                _prevHitCount = null;
+                _prevCollisionCount = null;
+            }
+
+            _lastLength = count;
+            _lastPacketUtc = now;
+            Interlocked.Increment(ref _packetCount);
+            Interlocked.Add(ref _byteCount, count);
+
+            Interlocked.Increment(ref _packetsInCurrentSecond);
+            var elapsed = (now - _rateWindowStartUtc).TotalSeconds;
+            if (elapsed >= 1.0)
+            {
+                int pktCount = Interlocked.Exchange(ref _packetsInCurrentSecond, 0);
+                Volatile.Write(ref _smoothedPacketsPerSecond, pktCount / elapsed);
+                _rateWindowStartUtc = now;
+            }
+
+            if (_settings.DumpFirstPackets > 0 && Interlocked.Increment(ref _dumped) <= _settings.DumpFirstPackets)
+            {
+                global::SimHub.Logging.Current.Debug(
+                    "[SimHubGRebels] packet #" + sequence + " len=" + count + " " + HexDump(payload));
+            }
+
+            // Zero-allocation decode into the pre-allocated back buffer
+            PacketParser.ParseInto(payload, _compiledMap, sequence, _backFrame);
+
+            UpdateWeaponPulses(_backFrame);
+            DetectEdges(_backFrame);
+
+            // Track previous velocity components for directional collision detection
+            if (_vxIdx >= 0) _prevVx = _backFrame.GetNumber(_vxIdx);
+            if (_vyIdx >= 0) _prevVy = _backFrame.GetNumber(_vyIdx);
+            if (_vzIdx >= 0) _prevVz = _backFrame.GetNumber(_vzIdx);
+
+            // Atomically publish back buffer as current frame and swap buffers
+            var temp = _current;
+            _current = _backFrame;
+            _backFrame = temp;
+        }
+
         private void ReceiveLoop()
         {
             long sequence = 0;
@@ -295,68 +372,8 @@ namespace SimHub.GRebels
                     var payload = _client.Receive(ref endpoint);
                     if (payload == null || payload.Length == 0) continue;
 
-                    int count = payload.Length;
                     sequence++;
-
-                    if (_compiledMap.ExpectedSize.HasValue &&
-                        _compiledMap.ExpectedSize.Value != count)
-                    {
-                        _lengthMismatchCount++;
-                    }
-
-                    lock (_lengthsLock)
-                    {
-                        int seen;
-                        _lengthCounts.TryGetValue(count, out seen);
-                        _lengthCounts[count] = seen + 1;
-                    }
-
-                    var now = DateTime.UtcNow;
-                    if (_lastPacketUtc != DateTime.MinValue && (now - _lastPacketUtc).TotalSeconds > _settings.StaleSeconds)
-                    {
-                        // Stale feed resumed: reset previous values to prevent false edge/fire events,
-                        // but preserve session baselines across pauses
-                        _prevPrimaryCount = null;
-                        _prevSecondaryCount = null;
-                        _prevHitCount = null;
-                        _prevCollisionCount = null;
-                    }
-
-                    _lastLength = count;
-                    _lastPacketUtc = now;
-                    Interlocked.Increment(ref _packetCount);
-                    Interlocked.Add(ref _byteCount, count);
-
-                    Interlocked.Increment(ref _packetsInCurrentSecond);
-                    var elapsed = (now - _rateWindowStartUtc).TotalSeconds;
-                    if (elapsed >= 1.0)
-                    {
-                        int pktCount = Interlocked.Exchange(ref _packetsInCurrentSecond, 0);
-                        Volatile.Write(ref _smoothedPacketsPerSecond, pktCount / elapsed);
-                        _rateWindowStartUtc = now;
-                    }
-
-                    if (_settings.DumpFirstPackets > 0 && Interlocked.Increment(ref _dumped) <= _settings.DumpFirstPackets)
-                    {
-                        global::SimHub.Logging.Current.Debug(
-                            "[SimHubGRebels] packet #" + sequence + " len=" + count + " " + HexDump(payload));
-                    }
-
-                    // Zero-allocation decode into the pre-allocated back buffer
-                    PacketParser.ParseInto(payload, _compiledMap, sequence, _backFrame);
-
-                    UpdateWeaponPulses(_backFrame);
-                    DetectEdges(_backFrame);
-
-                    // Track previous velocity components for directional collision detection
-                    if (_vxIdx >= 0) _prevVx = _backFrame.GetNumber(_vxIdx);
-                    if (_vyIdx >= 0) _prevVy = _backFrame.GetNumber(_vyIdx);
-                    if (_vzIdx >= 0) _prevVz = _backFrame.GetNumber(_vzIdx);
-
-                    // Atomically publish back buffer as current frame and swap buffers
-                    var temp = _current;
-                    _current = _backFrame;
-                    _backFrame = temp;
+                    IngestPacket(payload, sequence);
                 }
                 catch (ObjectDisposedException)
                 {

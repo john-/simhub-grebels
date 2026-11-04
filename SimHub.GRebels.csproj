@@ -26,7 +26,14 @@
     <!-- Default fallback -->
     <SimHubPath Condition="'$(SimHubPath)' == ''">C:\Program Files (x86)\SimHub\</SimHubPath>
     <_SimHubPath>$([MSBuild]::EnsureTrailingSlash('$(SimHubPath)'))</_SimHubPath>
+    <DefaultItemExcludes>$(DefaultItemExcludes);SimHub.GRebels.Tests\**</DefaultItemExcludes>
   </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>SimHub.GRebels.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
@@ -66,5 +73,15 @@
   <ItemGroup>
     <None Update="SimHub.GRebels.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <Target Name="SetGitVersion" BeforeTargets="GetAssemblyVersion;InitializeSourceControlInformation">
+    <Exec Command="git describe --tags --always --dirty" ConsoleToMSBuild="true" StandardOutputImportance="low" IgnoreExitCode="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_GitVersion" />
+    </Exec>
+    <PropertyGroup Condition="'$(_GitVersion)' != '' and '$(InformationalVersion)' == ''">
+      <InformationalVersion>$(_GitVersion)</InformationalVersion>
+      <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    </PropertyGroup>
+  </Target>
 
 </Project>

@@ -248,19 +248,36 @@ After building the plugin (or extracting release binaries), deploy the component
 
 ### Automated Deployment (Batch Script)
 
-There is a batch script (`deploy.bat`) to automate copying build artifacts into the SimHub directory, validating installation paths, and managing backups.
+The repository provides [`deploy.bat`](deploy.bat) to automate building Release artifacts and deploying them directly into your SimHub installation.
 
+#### What `deploy.bat` does:
+1. **Detects or validates SimHub target directory**:
+   - Accepts an optional command-line argument: `deploy.bat "C:\Program Files (x86)\SimHub"`
+   - Checks the `SIMHUB_DIR` environment variable
+   - Checks common installation paths (`C:\Program Files (x86)\SimHub`, `C:\Program Files\SimHub`, `D:\SimHub`, etc.)
+   - Prompts for path if not detected automatically
+2. **Validates running processes**: Checks if `SimHubWPF.exe` is running to prevent file-lock errors.
+3. **Builds Release configuration**: Builds `SimHub.GRebels.csproj` in Release mode (or falls back to pre-compiled binaries if Windows .NET SDK is not in PATH).
+4. **Copies artifacts**: Copies `SimHub.GRebels.dll`, `SimHub.GRebels.pdb`, and `SimHub.GRebels.json` to the target directory.
+
+#### Usage:
+
+From Command Prompt or PowerShell in the repository directory:
 ```cmd
-:: TBD: Automated deployment script
-:: deploy.bat
+:: Auto-detects SimHub path and deploys
+deploy.bat
+
+:: Or specify target directory explicitly:
+deploy.bat "C:\Program Files (x86)\SimHub"
+deploy.bat "D:\SimHub"
 ```
 
 ### Manual Deployment Steps
 
 1. **Close SimHub completely** before copying or updating plugin files.
 2. **Back up existing files** in your SimHub installation directory (especially any custom `SimHub.GRebels.json`).
-3. **Remove legacy plugin files** if upgrading from older versions:
-   - Delete `GRebelsSimHub.dll` and `GRebelsSimHub.json` from `C:\Program Files (x86)\SimHub\`.
+3. **Disable conflicting plugins**:
+   - You may need to disable any other G-Rebels plugins in SimHub to avoid port or telemetry conflicts.
 4. **Copy files** from `bin/Release/` to your SimHub installation directory (default: `C:\Program Files (x86)\SimHub\`):
    - `SimHub.GRebels.dll`
    - `SimHub.GRebels.json` (must reside next to the DLL)

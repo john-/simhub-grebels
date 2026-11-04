@@ -57,7 +57,7 @@ if %ERRORLEVEL% equ 0 (
 )
 
 echo [G-Rebels] Building Release configuration...
-dotnet build -c Release -p:SimHubPath="%SIMHUB_DIR%" >nul 2>&1
+dotnet build -c Release -p:SimHubPath="%SIMHUB_DIR%" -p:InformationalVersion="%PLUGIN_VER%" >nul 2>&1
 if %ERRORLEVEL% neq 0 (
     if exist "bin\Release\SimHub.GRebels.dll" (
         echo [WARN] Windows .NET SDK not detected.

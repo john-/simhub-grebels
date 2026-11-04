@@ -3,6 +3,9 @@
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
+TestResults/
+coverage/
+*.cobertura.xml
 
 ## Local reference assemblies & packages
 [Ll]ib/

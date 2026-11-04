@@ -217,7 +217,7 @@ namespace SimHub.GRebels
             _tbPackets.Text = r.PacketCount.ToString("N0");
             _tbRate.Text = $"{r.PacketsPerSecond:0.0} pkt/sec";
             _tbLastLength.Text = $"{r.LastLength} bytes";
-            _tbAge.Text = $"{r.Current.AgeSeconds:0.0} s";
+            _tbAge.Text = r.Current.HasData ? $"{r.Current.AgeSeconds:0.0} s" : "N/A (No packets)";
             _tbMismatch.Text = r.LengthMismatchCount.ToString("N0");
         }
     }

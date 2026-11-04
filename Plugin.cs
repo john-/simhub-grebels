@@ -183,7 +183,7 @@ namespace SimHub.GRebels
             Attach("PacketRate", () => (object)(_receiver?.PacketsPerSecond ?? 0.0));
             Attach("LastPacketSize", () => (object)(_receiver?.LastLength ?? 0));
             Attach("PacketLengths", () => (object)(_receiver?.DescribeLengths() ?? "none"));
-            Attach("FeedAge", () => (object)(_receiver == null ? 0.0 : _receiver.Current.AgeSeconds));
+            Attach("FeedAge", () => (object)(_receiver == null || !_receiver.Current.HasData ? 0.0 : _receiver.Current.AgeSeconds));
             Attach("FeedStale", () => (object)IsStale());
             Attach("LayoutMismatchCount", () => (object)(_receiver?.LengthMismatchCount ?? 0));
             Attach("PrimaryFired", () => (object)(_receiver == null || IsStale() ? 0.0 : _receiver.PrimaryFired));
@@ -195,7 +195,7 @@ namespace SimHub.GRebels
             Attach("CollisionFired", () => (object)(_receiver == null || IsStale() ? 0.0 : _receiver.CollisionFired));
             Attach("CollisionImpulse", () => (object)(_receiver == null || IsStale() ? 0.0 : _receiver.CollisionImpulse));
             Attach("CollisionLastStrength", () => (object)(_receiver == null ? 0.0 : _receiver.LastCollisionStrength));
-            Attach("CollisionStrengthAbs", () => (object)(_receiver == null || IsStale() ? 0.0 : Math.Abs(_collisionStrengthIdx >= 0 ? _receiver.Current.GetNumber(_collisionStrengthIdx) : _receiver.Current.GetNumber("CollisionStrength"))));
+            Attach("CollisionStrengthAbs", () => (object)(_receiver == null || IsStale() ? 0.0 : Math.Abs(_collisionStrengthIdx >= 0 ? _receiver.Current.GetNumber(_collisionStrengthIdx) : 0.0)));
             Attach("CollisionDirection", () => (object)(_receiver == null || IsStale() ? "None" : _receiver.CollisionDirection));
             Attach("CollisionDirectionCode", () => (object)(_receiver == null || IsStale() ? 0 : _receiver.CollisionDirectionCode));
             Attach("ThrottleTotalPercent", () => (object)GetThrottleTotalPercent());
@@ -204,9 +204,9 @@ namespace SimHub.GRebels
         private double GetThrottleTotalPercent()
         {
             if (_receiver == null) return 0.0;
-            double fwd = _fwdIndex >= 0 ? _receiver.Current.GetNumber(_fwdIndex) : _receiver.Current.GetNumber("InputForward");
-            double vert = _vertIndex >= 0 ? _receiver.Current.GetNumber(_vertIndex) : _receiver.Current.GetNumber("InputVertical");
-            double lat = _latIndex >= 0 ? _receiver.Current.GetNumber(_latIndex) : _receiver.Current.GetNumber("InputLateral");
+            double fwd = _fwdIndex >= 0 ? _receiver.Current.GetNumber(_fwdIndex) : 0.0;
+            double vert = _vertIndex >= 0 ? _receiver.Current.GetNumber(_vertIndex) : 0.0;
+            double lat = _latIndex >= 0 ? _receiver.Current.GetNumber(_latIndex) : 0.0;
             double mag = Math.Sqrt(fwd * fwd + vert * vert + lat * lat);
             return Math.Min(100.0, mag * 100.0);
         }
@@ -248,7 +248,7 @@ namespace SimHub.GRebels
 
             double raw = entry.FieldIndex >= 0
                 ? _receiver.Current.GetNumber(entry.FieldIndex)
-                : _receiver.Current.GetNumber(entry.Field);
+                : 0.0;
 
             if (entry.Scale != 1.0) raw *= entry.Scale;
             if (entry.Bias != 0.0) raw += entry.Bias;
@@ -261,7 +261,7 @@ namespace SimHub.GRebels
 
         private bool IsStale()
         {
-            if (_receiver == null) return true;
+            if (_receiver == null || !_receiver.Current.HasData) return true;
             return _receiver.Current.AgeSeconds > _settings.StaleSeconds;
         }
 
@@ -280,25 +280,7 @@ namespace SimHub.GRebels
 
                 if (infoAttr != null && !string.IsNullOrWhiteSpace(infoAttr.InformationalVersion))
                 {
-                    string info = infoAttr.InformationalVersion.Trim();
-                    int plusIdx = info.IndexOf('+');
-                    if (plusIdx >= 0)
-                    {
-                        string ver = info.Substring(0, plusIdx).Trim();
-                        string commit = info.Substring(plusIdx + 1).Trim();
-                        string shortCommit = commit.Length > 7 ? commit.Substring(0, 7) : commit;
-
-                        if (string.IsNullOrEmpty(ver) || ver == "1.0.0.0" || ver == "0.0.0" || ver == "1.0.0")
-                        {
-                            return !string.IsNullOrEmpty(shortCommit)
-                                ? (!string.IsNullOrEmpty(ver) ? $"{ver} ({shortCommit})" : shortCommit)
-                                : ver;
-                        }
-
-                        return !string.IsNullOrEmpty(shortCommit) ? $"{ver} ({shortCommit})" : ver;
-                    }
-
-                    return info;
+                    return VersionFormatter.FormatVersionString(infoAttr.InformationalVersion);
                 }
 
                 var verAttr = assembly.GetName().Version;

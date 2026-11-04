@@ -45,6 +45,16 @@ jobs:
       - name: Build SimHub.GRebels (Release)
         run: dotnet build SimHub.GRebels.csproj -c Release
 
+      - name: Run Unit Tests & Collect Code Coverage
+        run: dotnet test SimHub.GRebels.Tests/SimHub.GRebels.Tests.csproj -c Release --collect:"XPlat Code Coverage" --results-directory ./coverage
+
+      - name: Upload Code Coverage Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-coverage-report
+          path: ./coverage/**/coverage.cobertura.xml
+          retention-days: 14
+
       - name: Package Release Distribution
         shell: pwsh
         run: |

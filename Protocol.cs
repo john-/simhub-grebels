@@ -6,6 +6,54 @@ using Newtonsoft.Json;
 namespace SimHub.GRebels
 {
     /// <summary>
+    /// Utility for formatting plugin and git version strings without WPF/SimHub dependencies.
+    /// </summary>
+    public static class VersionFormatter
+    {
+        public static string FormatVersionString(string info)
+        {
+            if (string.IsNullOrWhiteSpace(info)) return "Unknown";
+            info = info.Trim();
+
+            int plusIdx = info.IndexOf('+');
+            if (plusIdx >= 0)
+            {
+                string ver = info.Substring(0, plusIdx).Trim();
+                string commit = info.Substring(plusIdx + 1).Trim();
+                bool isDirty = commit.EndsWith("-dirty", StringComparison.OrdinalIgnoreCase);
+                if (isDirty)
+                {
+                    commit = commit.Substring(0, commit.Length - "-dirty".Length);
+                }
+                if (commit.StartsWith("g", StringComparison.OrdinalIgnoreCase) && commit.Length > 8)
+                {
+                    commit = commit.Substring(1);
+                }
+                string shortCommit = commit.Length > 7 ? commit.Substring(0, 7) : commit;
+                if (isDirty) shortCommit += "-dirty";
+
+                if (string.IsNullOrEmpty(ver) || ver == "1.0.0.0" || ver == "0.0.0" || ver == "1.0.0")
+                {
+                    return !string.IsNullOrEmpty(shortCommit)
+                        ? (!string.IsNullOrEmpty(ver) ? $"{ver} ({shortCommit})" : shortCommit)
+                        : ver;
+                }
+
+                return !string.IsNullOrEmpty(shortCommit) ? $"{ver} ({shortCommit})" : ver;
+            }
+
+            // If it was generated via git describe (e.g. v1.0.1-6-gce78d2a or ...-dirty)
+            if (info.StartsWith("v", StringComparison.OrdinalIgnoreCase) || info.Contains("-g") || info.EndsWith("-dirty", StringComparison.OrdinalIgnoreCase))
+            {
+                // Strip the Git 'g' prefix before the commit hash (e.g. -gce78d2a -> -ce78d2a)
+                return System.Text.RegularExpressions.Regex.Replace(info, @"-g(?=[0-9a-fA-F]{7,40})", "-");
+            }
+
+            return info;
+        }
+    }
+
+    /// <summary>
     /// Supported primitive telemetry types inside the UDP packet.
     /// </summary>
     public enum TelemetryDataType
@@ -26,7 +74,6 @@ namespace SimHub.GRebels
     ///
     /// The layout is defined by SimHub.GRebels.json and compiled into CompiledFieldMap at startup.
     /// Access by integer index is O(1) and performs no allocations or string hashing.
-    /// Access by string name is provided for backward compatibility.
     /// </summary>
     public sealed class Frame
     {
@@ -49,73 +96,11 @@ namespace SimHub.GRebels
             ReceivedUtc = DateTime.MinValue;
         }
 
-        public Frame(Dictionary<string, double> numbers, Dictionary<string, string> strings, long sequence, int length)
-        {
-            Sequence = sequence;
-            Length = length;
-            ReceivedUtc = DateTime.UtcNow;
-
-            var map = new FieldMap();
-            if (numbers != null)
-            {
-                foreach (var k in numbers.Keys) map.Fields[k] = new FieldSpec { Type = "double" };
-            }
-            if (strings != null)
-            {
-                foreach (var k in strings.Keys) map.Fields[k] = new FieldSpec { Type = "string" };
-            }
-            Map = new CompiledFieldMap(map);
-
-            Numbers = new double[Map.NumericFields.Length];
-            Strings = new string[Map.StringFields.Length];
-
-            if (numbers != null)
-            {
-                foreach (var kv in numbers)
-                {
-                    int idx = Map.GetFieldIndex(kv.Key);
-                    if (idx >= 0) Numbers[idx] = kv.Value;
-                }
-            }
-            if (strings != null)
-            {
-                foreach (var kv in strings)
-                {
-                    int idx = Map.GetStringIndex(kv.Key);
-                    if (idx >= 0) Strings[idx] = kv.Value;
-                }
-            }
-        }
-
         public double GetNumber(int index)
         {
             if (Numbers != null && index >= 0 && index < Numbers.Length)
                 return Numbers[index];
             return 0.0;
-        }
-
-        public double GetNumber(string name)
-        {
-            if (Map != null)
-            {
-                int idx = Map.GetFieldIndex(name);
-                if (idx >= 0) return Numbers[idx];
-            }
-            return 0.0;
-        }
-
-        public bool Has(string name)
-        {
-            if (Map != null)
-            {
-                return Map.FieldNameToIndex.ContainsKey(name) || Map.StringNameToIndex.ContainsKey(name);
-            }
-            return false;
-        }
-
-        public bool Has(int index)
-        {
-            return index >= 0 && Numbers != null && index < Numbers.Length;
         }
 
         public string GetString(int index)
@@ -125,20 +110,20 @@ namespace SimHub.GRebels
             return string.Empty;
         }
 
-        public string GetString(string name)
+        public bool HasData
         {
-            if (Map != null)
-            {
-                int idx = Map.GetStringIndex(name);
-                if (idx >= 0 && Strings != null && idx < Strings.Length)
-                    return Strings[idx] ?? string.Empty;
-            }
-            return string.Empty;
+            get { return ReceivedUtc != DateTime.MinValue; }
         }
 
         public double AgeSeconds
         {
-            get { return (DateTime.UtcNow - ReceivedUtc).TotalSeconds; }
+            get
+            {
+                if (ReceivedUtc == DateTime.MinValue)
+                    return double.PositiveInfinity;
+                double seconds = (DateTime.UtcNow - ReceivedUtc).TotalSeconds;
+                return seconds < 0.0 ? 0.0 : seconds;
+            }
         }
     }
 
@@ -402,17 +387,6 @@ namespace SimHub.GRebels
                     strings[i] = string.Empty;
                 }
             }
-        }
-
-        /// <summary>
-        /// Backward-compatible overload allocating a new Frame.
-        /// </summary>
-        public static Frame Parse(byte[] data, FieldMap map, long sequence)
-        {
-            var compiled = new CompiledFieldMap(map);
-            var frame = new Frame(compiled);
-            ParseInto(data, compiled, sequence, frame);
-            return frame;
         }
 
         private static bool TryReadNumber(byte[] data, CompiledFieldSpec spec, out double value)
