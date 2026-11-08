@@ -40,6 +40,7 @@ namespace SimHub.GRebels
         private volatile Frame _current;
 
         private const int MaxPendingEvents = 64;
+        private const int MaxTrackedLengths = 64;
         private readonly ConcurrentQueue<PendingEvent> _pending = new ConcurrentQueue<PendingEvent>();
         private readonly Dictionary<string, double> _lastEdgeValue =
             new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
@@ -61,28 +62,29 @@ namespace SimHub.GRebels
 
         private double? _prevPrimaryCount;
         private double? _prevSecondaryCount;
-        private double _sessionPrimaryCount;
-        private double _sessionSecondaryCount;
-        private DateTime _lastPrimaryFireUtc = DateTime.MinValue;
-        private DateTime _lastSecondaryFireUtc = DateTime.MinValue;
+        private long _sessionPrimaryCountBits;
+        private long _sessionSecondaryCountBits;
+        private long _lastPrimaryFireUtcTicks = DateTime.MinValue.Ticks;
+        private long _lastSecondaryFireUtcTicks = DateTime.MinValue.Ticks;
 
-        public double SessionPrimaryCount => _sessionPrimaryCount;
-        public double SessionSecondaryCount => _sessionSecondaryCount;
+        public double SessionPrimaryCount => GetAtomicDouble(ref _sessionPrimaryCountBits);
+        public double SessionSecondaryCount => GetAtomicDouble(ref _sessionSecondaryCountBits);
 
         private double? _prevHitCount;
-        private DateTime _lastHitFireUtc = DateTime.MinValue;
-        private double _lastHitStrength = 0.0;
+        private long _lastHitFireUtcTicks = DateTime.MinValue.Ticks;
+        private long _lastHitStrengthBits;
 
         private double? _prevCollisionCount;
-        private DateTime _lastCollisionFireUtc = DateTime.MinValue;
-        private double _lastCollisionStrength = 0.0;
-        public double LastCollisionStrength => _lastCollisionStrength;
+        private long _lastCollisionFireUtcTicks = DateTime.MinValue.Ticks;
+        private long _lastCollisionStrengthBits;
+        public double LastCollisionStrength => GetAtomicDouble(ref _lastCollisionStrengthBits);
+        public double LastHitStrength => GetAtomicDouble(ref _lastHitStrengthBits);
         public string LastCollisionDirection => _lastCollisionDirection;
         public int LastCollisionDirectionCode => _lastCollisionDirectionCode;
-        public DateTime LastHitFireUtc => _lastHitFireUtc;
-        public DateTime LastCollisionFireUtc => _lastCollisionFireUtc;
-        public DateTime LastPrimaryFireUtc => _lastPrimaryFireUtc;
-        public DateTime LastSecondaryFireUtc => _lastSecondaryFireUtc;
+        public DateTime LastHitFireUtc => GetAtomicDateTime(ref _lastHitFireUtcTicks);
+        public DateTime LastCollisionFireUtc => GetAtomicDateTime(ref _lastCollisionFireUtcTicks);
+        public DateTime LastPrimaryFireUtc => GetAtomicDateTime(ref _lastPrimaryFireUtcTicks);
+        public DateTime LastSecondaryFireUtc => GetAtomicDateTime(ref _lastSecondaryFireUtcTicks);
         private double? _prevVx;
         private double? _prevVy;
         private double? _prevVz;
@@ -92,13 +94,33 @@ namespace SimHub.GRebels
         private long _packetCount;
         private long _byteCount;
         private int _lastLength;
-        private DateTime _lastPacketUtc = DateTime.MinValue;
+        private long _lastPacketUtcTicks = DateTime.MinValue.Ticks;
         private int _dumped;
         private int _lengthMismatchCount;
 
         private int _packetsInCurrentSecond;
         private DateTime _rateWindowStartUtc = DateTime.UtcNow;
         private double _smoothedPacketsPerSecond;
+
+        private static void SetAtomicDouble(ref long targetBits, double value)
+        {
+            Interlocked.Exchange(ref targetBits, BitConverter.DoubleToInt64Bits(value));
+        }
+
+        private static double GetAtomicDouble(ref long targetBits)
+        {
+            return BitConverter.Int64BitsToDouble(Interlocked.Read(ref targetBits));
+        }
+
+        private static void SetAtomicDateTime(ref long targetTicks, DateTime value)
+        {
+            Interlocked.Exchange(ref targetTicks, value.Ticks);
+        }
+
+        private static DateTime GetAtomicDateTime(ref long targetTicks)
+        {
+            return new DateTime(Interlocked.Read(ref targetTicks), DateTimeKind.Utc);
+        }
 
         public TelemetryReceiver(PluginSettings settings)
         {
@@ -127,14 +149,15 @@ namespace SimHub.GRebels
         public long ByteCount { get { return Interlocked.Read(ref _byteCount); } }
         public int LastLength { get { return _lastLength; } }
         public int LengthMismatchCount { get { return _lengthMismatchCount; } }
-        public DateTime LastPacketUtc { get { return _lastPacketUtc; } }
+        public DateTime LastPacketUtc => GetAtomicDateTime(ref _lastPacketUtcTicks);
 
         public double PacketsPerSecond
         {
             get
             {
                 var now = DateTime.UtcNow;
-                if (_lastPacketUtc == DateTime.MinValue || (now - _lastPacketUtc).TotalSeconds > _settings.StaleSeconds)
+                var lastPacket = GetAtomicDateTime(ref _lastPacketUtcTicks);
+                if (lastPacket == DateTime.MinValue || (now - lastPacket).TotalSeconds > _settings.StaleSeconds)
                     return 0.0;
 
                 return Volatile.Read(ref _smoothedPacketsPerSecond);
@@ -145,8 +168,10 @@ namespace SimHub.GRebels
         {
             get
             {
-                if (_settings.WeaponPulseMs <= 0 || _lastPrimaryFireUtc == DateTime.MinValue) return 0.0;
-                return (DateTime.UtcNow - _lastPrimaryFireUtc).TotalMilliseconds < _settings.WeaponPulseMs ? 100.0 : 0.0;
+                if (_settings.WeaponPulseMs <= 0) return 0.0;
+                var last = GetAtomicDateTime(ref _lastPrimaryFireUtcTicks);
+                if (last == DateTime.MinValue) return 0.0;
+                return (DateTime.UtcNow - last).TotalMilliseconds < _settings.WeaponPulseMs ? 100.0 : 0.0;
             }
         }
 
@@ -154,8 +179,10 @@ namespace SimHub.GRebels
         {
             get
             {
-                if (_settings.WeaponPulseMs <= 0 || _lastSecondaryFireUtc == DateTime.MinValue) return 0.0;
-                return (DateTime.UtcNow - _lastSecondaryFireUtc).TotalMilliseconds < _settings.WeaponPulseMs ? 100.0 : 0.0;
+                if (_settings.WeaponPulseMs <= 0) return 0.0;
+                var last = GetAtomicDateTime(ref _lastSecondaryFireUtcTicks);
+                if (last == DateTime.MinValue) return 0.0;
+                return (DateTime.UtcNow - last).TotalMilliseconds < _settings.WeaponPulseMs ? 100.0 : 0.0;
             }
         }
 
@@ -163,8 +190,10 @@ namespace SimHub.GRebels
         {
             get
             {
-                if (_settings.HitPulseMs <= 0 || _lastHitFireUtc == DateTime.MinValue) return 0.0;
-                return (DateTime.UtcNow - _lastHitFireUtc).TotalMilliseconds < _settings.HitPulseMs ? 100.0 : 0.0;
+                if (_settings.HitPulseMs <= 0) return 0.0;
+                var last = GetAtomicDateTime(ref _lastHitFireUtcTicks);
+                if (last == DateTime.MinValue) return 0.0;
+                return (DateTime.UtcNow - last).TotalMilliseconds < _settings.HitPulseMs ? 100.0 : 0.0;
             }
         }
 
@@ -172,12 +201,16 @@ namespace SimHub.GRebels
         {
             get
             {
-                if (_settings.HitPulseMs <= 0 || _lastHitFireUtc == DateTime.MinValue) return 0.0;
-                double elapsedMs = (DateTime.UtcNow - _lastHitFireUtc).TotalMilliseconds;
+                if (_settings.HitPulseMs <= 0) return 0.0;
+                var last = GetAtomicDateTime(ref _lastHitFireUtcTicks);
+                if (last == DateTime.MinValue) return 0.0;
+                double elapsedMs = (DateTime.UtcNow - last).TotalMilliseconds;
                 if (elapsedMs >= _settings.HitPulseMs || elapsedMs < 0) return 0.0;
 
                 double refVal = _settings.HitStrengthRef > 0.0 ? _settings.HitStrengthRef : 25.0;
-                double strengthRatio = Math.Abs(_lastHitStrength) / refVal;
+                double str = GetAtomicDouble(ref _lastHitStrengthBits);
+                if (double.IsNaN(str) || double.IsInfinity(str)) str = 0.0;
+                double strengthRatio = Math.Abs(str) / refVal;
                 double clampedRatio = Math.Max(0.05, Math.Min(1.0, strengthRatio));
                 double decay = 1.0 - (elapsedMs / _settings.HitPulseMs);
                 return clampedRatio * decay * 100.0;
@@ -188,8 +221,10 @@ namespace SimHub.GRebels
         {
             get
             {
-                if (_settings.CollisionPulseMs <= 0 || _lastCollisionFireUtc == DateTime.MinValue) return 0.0;
-                return (DateTime.UtcNow - _lastCollisionFireUtc).TotalMilliseconds < _settings.CollisionPulseMs ? 100.0 : 0.0;
+                if (_settings.CollisionPulseMs <= 0) return 0.0;
+                var last = GetAtomicDateTime(ref _lastCollisionFireUtcTicks);
+                if (last == DateTime.MinValue) return 0.0;
+                return (DateTime.UtcNow - last).TotalMilliseconds < _settings.CollisionPulseMs ? 100.0 : 0.0;
             }
         }
 
@@ -197,12 +232,16 @@ namespace SimHub.GRebels
         {
             get
             {
-                if (_settings.CollisionPulseMs <= 0 || _lastCollisionFireUtc == DateTime.MinValue) return 0.0;
-                double elapsedMs = (DateTime.UtcNow - _lastCollisionFireUtc).TotalMilliseconds;
+                if (_settings.CollisionPulseMs <= 0) return 0.0;
+                var last = GetAtomicDateTime(ref _lastCollisionFireUtcTicks);
+                if (last == DateTime.MinValue) return 0.0;
+                double elapsedMs = (DateTime.UtcNow - last).TotalMilliseconds;
                 if (elapsedMs >= _settings.CollisionPulseMs || elapsedMs < 0) return 0.0;
 
                 double refVal = _settings.CollisionStrengthRef > 0.0 ? _settings.CollisionStrengthRef : 150.0;
-                double strengthRatio = Math.Abs(_lastCollisionStrength) / refVal;
+                double str = GetAtomicDouble(ref _lastCollisionStrengthBits);
+                if (double.IsNaN(str) || double.IsInfinity(str)) str = 0.0;
+                double strengthRatio = Math.Abs(str) / refVal;
                 double clampedRatio = Math.Max(0.05, Math.Min(1.0, strengthRatio));
                 double decay = 1.0 - (elapsedMs / _settings.CollisionPulseMs);
                 return clampedRatio * decay * 100.0;
@@ -213,8 +252,10 @@ namespace SimHub.GRebels
         {
             get
             {
-                if (_settings.CollisionPulseMs <= 0 || _lastCollisionFireUtc == DateTime.MinValue) return "None";
-                return (DateTime.UtcNow - _lastCollisionFireUtc).TotalMilliseconds < _settings.CollisionPulseMs ? _lastCollisionDirection : "None";
+                if (_settings.CollisionPulseMs <= 0) return "None";
+                var last = GetAtomicDateTime(ref _lastCollisionFireUtcTicks);
+                if (last == DateTime.MinValue) return "None";
+                return (DateTime.UtcNow - last).TotalMilliseconds < _settings.CollisionPulseMs ? _lastCollisionDirection : "None";
             }
         }
 
@@ -222,8 +263,10 @@ namespace SimHub.GRebels
         {
             get
             {
-                if (_settings.CollisionPulseMs <= 0 || _lastCollisionFireUtc == DateTime.MinValue) return 0;
-                return (DateTime.UtcNow - _lastCollisionFireUtc).TotalMilliseconds < _settings.CollisionPulseMs ? _lastCollisionDirectionCode : 0;
+                if (_settings.CollisionPulseMs <= 0) return 0;
+                var last = GetAtomicDateTime(ref _lastCollisionFireUtcTicks);
+                if (last == DateTime.MinValue) return 0;
+                return (DateTime.UtcNow - last).TotalMilliseconds < _settings.CollisionPulseMs ? _lastCollisionDirectionCode : 0;
             }
         }
 
@@ -308,12 +351,19 @@ namespace SimHub.GRebels
             lock (_lengthsLock)
             {
                 int seen;
-                _lengthCounts.TryGetValue(count, out seen);
-                _lengthCounts[count] = seen + 1;
+                if (_lengthCounts.TryGetValue(count, out seen))
+                {
+                    _lengthCounts[count] = seen + 1;
+                }
+                else if (_lengthCounts.Count < MaxTrackedLengths)
+                {
+                    _lengthCounts[count] = 1;
+                }
             }
 
             var now = packetTimeUtc ?? DateTime.UtcNow;
-            if (_lastPacketUtc != DateTime.MinValue && (now - _lastPacketUtc).TotalSeconds > _settings.StaleSeconds)
+            var lastPacket = GetAtomicDateTime(ref _lastPacketUtcTicks);
+            if (lastPacket != DateTime.MinValue && (now - lastPacket).TotalSeconds > _settings.StaleSeconds)
             {
                 // Stale feed resumed: reset previous values to prevent false edge/fire events,
                 // but preserve session baselines across pauses
@@ -324,7 +374,7 @@ namespace SimHub.GRebels
             }
 
             _lastLength = count;
-            _lastPacketUtc = now;
+            SetAtomicDateTime(ref _lastPacketUtcTicks, now);
             Interlocked.Increment(ref _packetCount);
             Interlocked.Add(ref _byteCount, count);
 
@@ -363,6 +413,7 @@ namespace SimHub.GRebels
         private void ReceiveLoop()
         {
             long sequence = 0;
+            string allowedIp = _settings.AllowedSenderIp?.Trim();
 
             while (!_stopRequested)
             {
@@ -371,6 +422,14 @@ namespace SimHub.GRebels
                     var endpoint = new IPEndPoint(IPAddress.Any, 0);
                     var payload = _client.Receive(ref endpoint);
                     if (payload == null || payload.Length == 0) continue;
+
+                    if (!string.IsNullOrEmpty(allowedIp))
+                    {
+                        if (!string.Equals(endpoint.Address.ToString(), allowedIp, StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue; // Reject unauthorized sender
+                        }
+                    }
 
                     sequence++;
                     IngestPacket(payload, sequence);
@@ -398,12 +457,12 @@ namespace SimHub.GRebels
         {
             if (_primaryCountIdx >= 0)
             {
-                CheckWeaponCount(frame.GetNumber(_primaryCountIdx), ref _prevPrimaryCount, ref _sessionPrimaryCount, ref _lastPrimaryFireUtc, "PrimaryFired");
+                CheckWeaponCount(frame.GetNumber(_primaryCountIdx), ref _prevPrimaryCount, ref _sessionPrimaryCountBits, ref _lastPrimaryFireUtcTicks, "PrimaryFired");
             }
 
             if (_secondaryCountIdx >= 0)
             {
-                CheckWeaponCount(frame.GetNumber(_secondaryCountIdx), ref _prevSecondaryCount, ref _sessionSecondaryCount, ref _lastSecondaryFireUtc, "SecondaryFired");
+                CheckWeaponCount(frame.GetNumber(_secondaryCountIdx), ref _prevSecondaryCount, ref _sessionSecondaryCountBits, ref _lastSecondaryFireUtcTicks, "SecondaryFired");
             }
 
             if (_hitCountIdx >= 0)
@@ -422,6 +481,7 @@ namespace SimHub.GRebels
         private void CheckHitCount(double value, double strength)
         {
             if (value < 0.0 || double.IsNaN(value) || double.IsInfinity(value)) return;
+            if (double.IsNaN(strength) || double.IsInfinity(strength)) strength = 0.0;
 
             if (!_prevHitCount.HasValue)
             {
@@ -434,8 +494,8 @@ namespace SimHub.GRebels
             if (delta >= 1.0 && delta <= 20.0)
             {
                 // Real hit event within valid combat range
-                _lastHitFireUtc = DateTime.UtcNow;
-                _lastHitStrength = strength;
+                SetAtomicDateTime(ref _lastHitFireUtcTicks, DateTime.UtcNow);
+                SetAtomicDouble(ref _lastHitStrengthBits, strength);
                 EnqueueEvent("HitReceived");
                 _prevHitCount = value;
             }
@@ -444,8 +504,8 @@ namespace SimHub.GRebels
                 // delta < 0 (restart/reset) or delta > 20 (abnormal jump/re-sync) -> re-baseline without firing
                 if (delta < 0.0)
                 {
-                    _lastHitStrength = 0.0;
-                    _lastHitFireUtc = DateTime.MinValue;
+                    SetAtomicDouble(ref _lastHitStrengthBits, 0.0);
+                    SetAtomicDateTime(ref _lastHitFireUtcTicks, DateTime.MinValue);
                 }
                 _prevHitCount = value;
             }
@@ -454,13 +514,14 @@ namespace SimHub.GRebels
         private void CheckCollisionCount(double value, double strength, Frame frame)
         {
             if (value < 0.0 || double.IsNaN(value) || double.IsInfinity(value)) return;
+            if (double.IsNaN(strength) || double.IsInfinity(strength)) strength = 0.0;
 
             double absStrength = Math.Abs(strength);
 
             if (!_prevCollisionCount.HasValue)
             {
                 _prevCollisionCount = value; // baseline only
-                if (absStrength > 0.001) _lastCollisionStrength = absStrength;
+                if (absStrength > 0.001) SetAtomicDouble(ref _lastCollisionStrengthBits, absStrength);
                 return;
             }
 
@@ -469,8 +530,8 @@ namespace SimHub.GRebels
             if (delta >= 1.0)
             {
                 // Real collision impact event: fire trigger event and start pulse
-                _lastCollisionFireUtc = DateTime.UtcNow;
-                _lastCollisionStrength = absStrength > 0.001 ? absStrength : 15.0;
+                SetAtomicDateTime(ref _lastCollisionFireUtcTicks, DateTime.UtcNow);
+                SetAtomicDouble(ref _lastCollisionStrengthBits, absStrength > 0.001 ? absStrength : 15.0);
 
                 // Determine directional impact vector from velocity delta
                 DetermineCollisionDirection(frame);
@@ -484,8 +545,8 @@ namespace SimHub.GRebels
                 // delta < 0 (respawn / restart / destruction) -> clear fire timestamp and re-baseline
                 if (delta < 0.0)
                 {
-                    _lastCollisionStrength = 0.0;
-                    _lastCollisionFireUtc = DateTime.MinValue;
+                    SetAtomicDouble(ref _lastCollisionStrengthBits, 0.0);
+                    SetAtomicDateTime(ref _lastCollisionFireUtcTicks, DateTime.MinValue);
                     _lastCollisionDirection = "None";
                     _lastCollisionDirectionCode = 0;
                 }
@@ -534,7 +595,7 @@ namespace SimHub.GRebels
             }
         }
 
-        private void CheckWeaponCount(double value, ref double? prev, ref double sessionCount, ref DateTime lastFireUtc, string eventName)
+        private void CheckWeaponCount(double value, ref double? prev, ref long sessionCountBits, ref long lastFireUtcTicks, string eventName)
         {
             // Allow 0 (valid initial missile counter at match start); ignore negative/invalid readings
             if (value < 0.0 || double.IsNaN(value) || double.IsInfinity(value)) return;
@@ -551,9 +612,10 @@ namespace SimHub.GRebels
             if (delta >= 1.0 && delta <= 10.0)
             {
                 // Real increase = shot fired
-                lastFireUtc = DateTime.UtcNow;
+                SetAtomicDateTime(ref lastFireUtcTicks, DateTime.UtcNow);
                 EnqueueEvent(eventName);
-                sessionCount += delta;
+                double currentSession = GetAtomicDouble(ref sessionCountBits);
+                SetAtomicDouble(ref sessionCountBits, currentSession + delta);
                 prev = value;
             }
             else

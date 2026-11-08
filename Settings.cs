@@ -57,6 +57,9 @@ namespace SimHub.GRebels
         public int Port = 33001;
         public string BindAddress = "127.0.0.1";
 
+        /// <summary>Optional IP filter. If non-empty, UDP packets from any other source IP are dropped.</summary>
+        public string AllowedSenderIp = "";
+
         /// <summary>Treat the feed as stale after this many seconds without a packet.</summary>
         public double StaleSeconds = 1.0;
 
@@ -105,7 +108,7 @@ namespace SimHub.GRebels
             if (Port < 1 || Port > 65535)
                 throw new ArgumentException("Port " + Port + " is out of range 1-65535");
 
-            if (StaleSeconds <= 0.0)
+            if (StaleSeconds <= 0.0 || double.IsNaN(StaleSeconds) || double.IsInfinity(StaleSeconds))
                 throw new ArgumentException("StaleSeconds must be greater than 0");
 
             if (WeaponPulseMs < 0)
@@ -114,18 +117,49 @@ namespace SimHub.GRebels
             if (HitPulseMs < 0)
                 throw new ArgumentException("HitPulseMs cannot be negative");
 
-            if (HitStrengthRef <= 0.0)
+            if (HitStrengthRef <= 0.0 || double.IsNaN(HitStrengthRef) || double.IsInfinity(HitStrengthRef))
                 throw new ArgumentException("HitStrengthRef must be greater than 0");
 
             if (CollisionPulseMs < 0)
                 throw new ArgumentException("CollisionPulseMs cannot be negative");
 
-            if (CollisionStrengthRef <= 0.0)
+            if (CollisionStrengthRef <= 0.0 || double.IsNaN(CollisionStrengthRef) || double.IsInfinity(CollisionStrengthRef))
                 throw new ArgumentException("CollisionStrengthRef must be greater than 0");
+
+            if (!string.IsNullOrWhiteSpace(AllowedSenderIp))
+            {
+                System.Net.IPAddress parsed;
+                if (!System.Net.IPAddress.TryParse(AllowedSenderIp.Trim(), out parsed))
+                {
+                    throw new ArgumentException("AllowedSenderIp \"" + AllowedSenderIp + "\" is not a valid IP address");
+                }
+            }
 
             if (Fields == null)
             {
                 Fields = new FieldMap();
+            }
+
+            if (Fields.Fields != null)
+            {
+                foreach (var kv in Fields.Fields)
+                {
+                    if (kv.Value == null) continue;
+                    if (kv.Value.Offset < 0)
+                        throw new ArgumentException("Field \"" + kv.Key + "\" has negative Offset " + kv.Value.Offset);
+
+                    if (!FieldSpec.IsValidDataType(kv.Value.Type))
+                        throw new ArgumentException("Field \"" + kv.Key + "\" has unrecognized Type \"" + kv.Value.Type + "\"");
+
+                    if (string.Equals(kv.Value.Type, "string", StringComparison.OrdinalIgnoreCase) && kv.Value.Length <= 0)
+                        throw new ArgumentException("String field \"" + kv.Key + "\" has non-positive Length " + kv.Value.Length);
+
+                    if (double.IsNaN(kv.Value.Scale) || double.IsInfinity(kv.Value.Scale))
+                        throw new ArgumentException("Field \"" + kv.Key + "\" has invalid Scale");
+
+                    if (double.IsNaN(kv.Value.Bias) || double.IsInfinity(kv.Value.Bias))
+                        throw new ArgumentException("Field \"" + kv.Key + "\" has invalid Bias");
+                }
             }
 
             CompiledFields = new CompiledFieldMap(Fields);
@@ -148,6 +182,12 @@ namespace SimHub.GRebels
                 if (string.IsNullOrEmpty(entry.Field))
                     throw new ArgumentException(
                         "Properties entry \"" + entry.Property + "\" is missing \"Field\"");
+                if (double.IsNaN(entry.Scale) || double.IsInfinity(entry.Scale))
+                    throw new ArgumentException("Properties entry \"" + entry.Property + "\" has invalid Scale");
+                if (double.IsNaN(entry.Bias) || double.IsInfinity(entry.Bias))
+                    throw new ArgumentException("Properties entry \"" + entry.Property + "\" has invalid Bias");
+                if (double.IsNaN(entry.Min) || double.IsNaN(entry.Max))
+                    throw new ArgumentException("Properties entry \"" + entry.Property + "\" has NaN Min or Max");
                 if (entry.Min > entry.Max)
                 {
                     throw new ArgumentException(
@@ -164,6 +204,10 @@ namespace SimHub.GRebels
                 if (string.IsNullOrEmpty(spec.Field))
                     throw new ArgumentException(
                         "EdgeEvents entry \"" + spec.Event + "\" is missing \"Field\"");
+                if (spec.DebounceMs < 0)
+                    throw new ArgumentException("EdgeEvents entry \"" + spec.Event + "\" has negative DebounceMs");
+                if (double.IsNaN(spec.Threshold) || double.IsInfinity(spec.Threshold))
+                    throw new ArgumentException("EdgeEvents entry \"" + spec.Event + "\" has invalid Threshold");
                 spec.FieldIndex = CompiledFields.GetFieldIndex(spec.Field);
             }
         }
@@ -176,7 +220,13 @@ namespace SimHub.GRebels
             try
             {
                 var text = System.IO.File.ReadAllText(path);
-                return JsonConvert.DeserializeObject<PluginSettings>(text) ?? new PluginSettings();
+                var jsonSettings = new JsonSerializerSettings
+                {
+                    TypeNameHandling = TypeNameHandling.None,
+                    MetadataPropertyHandling = MetadataPropertyHandling.Ignore,
+                    MaxDepth = 32
+                };
+                return JsonConvert.DeserializeObject<PluginSettings>(text, jsonSettings) ?? new PluginSettings();
             }
             catch (Exception ex)
             {

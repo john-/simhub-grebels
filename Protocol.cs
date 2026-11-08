@@ -180,6 +180,30 @@ namespace SimHub.GRebels
             }
         }
 
+        public static bool IsValidDataType(string type)
+        {
+            if (string.IsNullOrEmpty(type)) return false;
+            switch (type.ToLowerInvariant())
+            {
+                case "float":
+                case "double":
+                case "int":
+                case "int32":
+                case "uint":
+                case "uint32":
+                case "short":
+                case "int16":
+                case "ushort":
+                case "uint16":
+                case "byte":
+                case "sbyte":
+                case "string":
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
         public static TelemetryDataType ParseDataType(string type)
         {
             if (string.IsNullOrEmpty(type)) return TelemetryDataType.Float;
@@ -326,9 +350,11 @@ namespace SimHub.GRebels
         {
             get
             {
+                if (Fields == null) return null;
                 int max = 0;
                 foreach (var f in Fields.Values)
                 {
+                    if (f == null) continue;
                     int end = f.Offset + f.ByteSize;
                     if (end > max) max = end;
                 }
@@ -364,7 +390,8 @@ namespace SimHub.GRebels
                 var spec = numSpecs[i];
                 if (TryReadNumber(data, spec, out double raw))
                 {
-                    numbers[i] = raw * spec.Scale + spec.Bias;
+                    double val = raw * spec.Scale + spec.Bias;
+                    numbers[i] = (double.IsNaN(val) || double.IsInfinity(val)) ? 0.0 : val;
                 }
                 else
                 {
@@ -392,14 +419,15 @@ namespace SimHub.GRebels
         private static bool TryReadNumber(byte[] data, CompiledFieldSpec spec, out double value)
         {
             value = 0.0;
+            if (data == null || spec == null) return false;
             int size = spec.ByteSize;
-            if (size <= 0 || spec.Offset < 0 || spec.Offset + size > data.Length) return false;
+            if (size <= 0 || spec.Offset < 0 || spec.Offset > data.Length - size) return false;
 
             switch (spec.Type)
             {
                 case TelemetryDataType.Double:
                     value = BitConverter.ToDouble(data, spec.Offset);
-                    return true;
+                    return !double.IsNaN(value) && !double.IsInfinity(value);
                 case TelemetryDataType.Int:
                     value = BitConverter.ToInt32(data, spec.Offset);
                     return true;
@@ -420,7 +448,7 @@ namespace SimHub.GRebels
                     return true;
                 case TelemetryDataType.Float:
                     value = BitConverter.ToSingle(data, spec.Offset);
-                    return true;
+                    return !double.IsNaN(value) && !double.IsInfinity(value);
                 default:
                     return false;
             }
@@ -429,8 +457,9 @@ namespace SimHub.GRebels
         private static bool TryReadString(byte[] data, CompiledFieldSpec spec, out string text)
         {
             text = string.Empty;
+            if (data == null || spec == null) return false;
             int len = spec.Length;
-            if (len <= 0 || spec.Offset < 0 || spec.Offset + len > data.Length) return false;
+            if (len <= 0 || spec.Offset < 0 || spec.Offset > data.Length - len) return false;
 
             int end = spec.Offset;
             int limit = spec.Offset + len;
@@ -438,7 +467,17 @@ namespace SimHub.GRebels
 
             if (end == spec.Offset) return true;
 
-            text = Encoding.UTF8.GetString(data, spec.Offset, end - spec.Offset).Trim();
+            string rawText = Encoding.UTF8.GetString(data, spec.Offset, end - spec.Offset).Trim();
+            var sb = new StringBuilder(rawText.Length);
+            for (int i = 0; i < rawText.Length; i++)
+            {
+                char c = rawText[i];
+                if (!char.IsControl(c) || c == '\t' || c == '\r' || c == '\n')
+                {
+                    sb.Append(c);
+                }
+            }
+            text = sb.ToString();
             return true;
         }
     }

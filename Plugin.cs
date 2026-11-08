@@ -195,7 +195,13 @@ namespace SimHub.GRebels
             Attach("CollisionFired", () => (object)(_receiver == null || IsStale() ? 0.0 : _receiver.CollisionFired));
             Attach("CollisionImpulse", () => (object)(_receiver == null || IsStale() ? 0.0 : _receiver.CollisionImpulse));
             Attach("CollisionLastStrength", () => (object)(_receiver == null ? 0.0 : _receiver.LastCollisionStrength));
-            Attach("CollisionStrengthAbs", () => (object)(_receiver == null || IsStale() ? 0.0 : Math.Abs(_collisionStrengthIdx >= 0 ? _receiver.Current.GetNumber(_collisionStrengthIdx) : 0.0)));
+            Attach("CollisionStrengthAbs", () =>
+            {
+                if (_receiver == null || IsStale()) return (object)0.0;
+                double str = _collisionStrengthIdx >= 0 ? _receiver.Current.GetNumber(_collisionStrengthIdx) : 0.0;
+                if (double.IsNaN(str) || double.IsInfinity(str)) return (object)0.0;
+                return (object)Math.Abs(str);
+            });
             Attach("CollisionDirection", () => (object)(_receiver == null || IsStale() ? "None" : _receiver.CollisionDirection));
             Attach("CollisionDirectionCode", () => (object)(_receiver == null || IsStale() ? 0 : _receiver.CollisionDirectionCode));
             Attach("ThrottleTotalPercent", () => (object)GetThrottleTotalPercent());
@@ -207,7 +213,13 @@ namespace SimHub.GRebels
             double fwd = _fwdIndex >= 0 ? _receiver.Current.GetNumber(_fwdIndex) : 0.0;
             double vert = _vertIndex >= 0 ? _receiver.Current.GetNumber(_vertIndex) : 0.0;
             double lat = _latIndex >= 0 ? _receiver.Current.GetNumber(_latIndex) : 0.0;
+
+            if (double.IsNaN(fwd) || double.IsInfinity(fwd)) fwd = 0.0;
+            if (double.IsNaN(vert) || double.IsInfinity(vert)) vert = 0.0;
+            if (double.IsNaN(lat) || double.IsInfinity(lat)) lat = 0.0;
+
             double mag = Math.Sqrt(fwd * fwd + vert * vert + lat * lat);
+            if (double.IsNaN(mag) || double.IsInfinity(mag)) return 0.0;
             return Math.Min(100.0, mag * 100.0);
         }
 
@@ -242,7 +254,7 @@ namespace SimHub.GRebels
             }
         }
 
-        private double ReadMapped(PropertyMapEntry entry)
+        internal double ReadMapped(PropertyMapEntry entry)
         {
             if (_receiver == null) return 0.0;
 
@@ -250,8 +262,14 @@ namespace SimHub.GRebels
                 ? _receiver.Current.GetNumber(entry.FieldIndex)
                 : 0.0;
 
+            if (double.IsNaN(raw) || double.IsInfinity(raw))
+                return 0.0;
+
             if (entry.Scale != 1.0) raw *= entry.Scale;
             if (entry.Bias != 0.0) raw += entry.Bias;
+
+            if (double.IsNaN(raw) || double.IsInfinity(raw))
+                return 0.0;
 
             if (raw < entry.Min) raw = entry.Min;
             else if (raw > entry.Max) raw = entry.Max;

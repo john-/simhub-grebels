@@ -6,8 +6,8 @@ MUTATIONS = [
     {
         "name": "Mutant 1: Ignore scale & bias in PacketParser",
         "file": "Protocol.cs",
-        "find": "numbers[i] = raw * spec.Scale + spec.Bias;",
-        "replace": "numbers[i] = raw;",
+        "find": "double val = raw * spec.Scale + spec.Bias;",
+        "replace": "double val = raw;",
         "expected_failing_test": "PacketParser_ShouldDecodeAllNumericTypesCorrectly"
     },
     {
