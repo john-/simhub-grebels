@@ -43,7 +43,7 @@ Optimized for tablet readability with enlarged high-contrast typography and inst
 
 ```text
 +--------------------------------------------------------------------------------+
-| G-REBELS // TACTICAL FLIGHT HUD                              LINK: 60.0 HZ | OK |
+| G-REBELS // TACTICAL HUD     [ CRAFT: X-TYPE // SECTOR C ]     LINK: 60.0 HZ OK |
 +---------------------+------------------------------------+---------------------+
 | // AIRSPEED & PROP  |    // FLIGHT VECTOR & ATTITUDE     | // TACTICAL WEAPONS |
 |                     |  PITCH: +08.5°       ROLL: -04.2°  |                     |
@@ -61,8 +61,12 @@ Optimized for tablet readability with enlarged high-contrast typography and inst
 ```
 
 ### Key Instruments:
-1. **Calibrated Airspeed (`KM/H`)**:
-   - The large 64pt primary number displays your craft's calibrated airspeed in **km/h** (`SpeedRaw * 0.036`), directly matching the in-game HUD.
+1. **Persistent Header Mission Strip**:
+   - Centered tactical callout badge: `[ CRAFT: X-TYPE // SECTOR C ]`.
+   - Automatically sanitizes internal Unreal Engine level/actor identifiers (e.g., `BP_SECTOR_C_UAID_1C6F659FB09E8A3602_1612385962` -> `SECTOR C`).
+   - Gracefully displays `[ CRAFT: -- // THEATER: STANDBY ]` when awaiting game telemetry.
+2. **Calibrated Airspeed (`KM/H`)**:
+   - The large 64pt primary number displays your craft's calibrated airspeed in **km/h** (`Speed * 0.036`), directly matching the in-game HUD.
    - The linear speed gauge reflects `0 .. 1000 KM/H`.
 2. **Attitude Horizon & Pitch Ladder**:
    - Center artificial horizon bar rotates with roll (`GRebels.Roll`) and translates with pitch (`GRebels.Pitch`).
@@ -70,19 +74,18 @@ Optimized for tablet readability with enlarged high-contrast typography and inst
 3. **Compass & Heading Tape**:
    - 360° heading indicator (`GRebels.Heading`) and relative yaw angle (`GRebels.Yaw`).
 4. **Primary Cannons & Session Round Counter**:
-   - Round counter starts cleanly at **`0`** for each flight session and counts up with each round fired.
-   - The `[ CANNON DISCHARGE ]` indicator strobes brightly with alternating high-contrast pulses on every shot fired.
+   - Round counter starts cleanly at **`0`** for each flight session and counts up with each round fired (`GRebels.PrimaryCountSession`).
+   - The `[ CANNON DISCHARGE ]` indicator strobes brightly with alternating high-contrast pulses on every shot fired (`GRebels.PrimaryFired`).
 5. **Guided Missiles**:
-   - Tracks missiles expended during the session, with an amber discharge strobe.
+   - Tracks missiles expended during the session (`GRebels.SecondaryCountSession`), with an amber discharge strobe (`GRebels.SecondaryFired`).
 6. **Hull Strain & Dynamic Impact Decay**:
-   - Calibrated against standard 25.0 projectile impact energy (100% full scale).
+   - Calibrated against standard projectile impact energy.
    - When taking incoming fire, the **IMPULSE** bar spikes immediately in red and smoothly fades out over **2.5 seconds** back to zero (`HULL SECURE`).
-   - If successive hits land while the bar is fading, it instantly re-triggers to the magnitude of the newest impact and resets the fade timer.
-   - Flashes an emergency red alert across the top bezel during active impacts (`GRebels.HitFired`).
-7. **Engine Boost Touch/Click Switch ("C")**:
+   - With the official Expanded telemetry schema, dashboards can also directly bind to live official shield and hull percentages: `GRebels.ShieldPercent` and `GRebels.HullPercent`.
+7. **Engine Boost Touch/Click Switch ("C") & Telemetry**:
    - Large, tactile button centered in the lower console.
    - Tapping on a tablet or clicking with a mouse simulates Windows key **`"c"`** directly to G-Rebels for boost.
-   - Flared in bright amber when 100% full throttle is applied.
+   - Live telemetry properties `GRebels.BoostActive` (binary 0/1) and `GRebels.BoostPercent` (0..100%) reflect actual boost tank charge.
 
 ---
 
@@ -92,20 +95,28 @@ Provides detailed engineering telemetry for 6-DOF thrusters and flight dynamics:
 
 ![Screen 2: 6-DOF RCS & Systems Diagnostics MFD](tactical_hud_screen2.png)
 
-1. **3-Axis RCS Thruster Grid (Left)**:
-   - Coordinate crosshair reticle showing lateral strafe (`GRebels.InputLateral`) on X and vertical thrust (`GRebels.InputVertical`) on Y, with digital readings for all 3 axes.
+1. **3-Axis RCS & Main Thruster Vectors (Left)**:
+   - Displays all 3 thruster vectors simultaneously:
+     - **2D Planar Crosshair Reticle**: Tracks lateral strafe (`GRebels.ThrustLateral`) on X and vertical thrust (`GRebels.ThrustVertical`) on Y.
+     - **Vertical Forward Thrust Sidebar**: Dedicated vertical linear gauge (`FWD`) with digital readout showing main forward thrust (`GRebels.ThrustMain`, 0% .. 100%).
+     - **Digital Readout**: Signed numerical readings for all 3 axes below the reticle.
 2. **Inertial G-Force Radar (Center)**:
-   - Radar ball plotting longitudinal surge (`GRebels.LocalSurgeMs2`) and lateral sway (`GRebels.LocalSwayMs2`), with heave acceleration readout.
+   - Visualizes horizontal G-forces and linear accelerations across 3 concentric rings calibrated to an aerospace 3.0 G flight envelope:
+     - **Inner Ring**: ~1.0 G (~10 m/s²)
+     - **Middle Ring**: ~2.1 G (~21 m/s²)
+     - **Outer Ring**: ~3.0 G (30 m/s²)
+   - Features dynamic 2D vector clamping so the indicator dot smoothly tracks acceleration vectors during flight, boost, and hard turns, smoothly pegging to the outer ring perimeter without ever escaping the display area during heavy impacts or crashes. Digital telemetry provides exact surge (`GRebels.LongitudinalAcc`), sway (`GRebels.LateralAcc`), and heave (`GRebels.VerticalAcc`) values in m/s².
 3. **3D Flight Velocity Components in KM/H (Right)**:
    - Calibrated into km/h (`* 0.036`):
-     - Forward velocity component (`Expanded.Float07`).
-     - Lateral drift velocity (`Expanded.Float08`).
-     - Vertical climb / dive rate (`Expanded.Float09`, inverted with `-0.036` so climb is `+` and dive is `-`).
+     - Forward velocity component (`GRebels.LongitudinalVelocity`).
+     - Lateral drift velocity (`GRebels.LateralVelocity`).
+     - Vertical climb / dive rate (`GRebels.VerticalVelocity`).
 4. **Avionics & Link Diagnostics (Bottom)**:
-   - Dedicated high-contrast rows displaying receiver and network health in real-time:
+   - High-contrast, mathematically column-aligned avionics readouts (every label standardized to 21 monospace characters so all data values start at character coordinate 22):
+     - **Active Craft & Sector**: Shows current ship name (`GRebels.VehicleName`) and venue (`GRebels.Location`).
      - **Packets Received**: Live count of total incoming UDP datagrams (`GRebels.PacketCount`).
      - **Stream Refresh Rate**: Live datagram rate in Hz (`GRebels.PacketRate`), typically ~60.0 Hz during active flight.
-     - **Last UDP Packet**: Size in bytes (`GRebels.LastPacketSize`), verifying 240-byte Expanded packets.
+     - **Last UDP Packet**: Size in bytes (`GRebels.LastPacketSize`), verifying 264-byte Expanded packets.
      - **Feed Latency / Age**: Seconds elapsed since the last received packet (`GRebels.FeedAge`).
      - **Receiver Status**: Dynamic health indicator (`GRebels.FeedStale`) glowing emerald green (`ACTIVE STREAM`) when synchronized, or warning red (`STALE`) when awaiting game packets.
      - **Protocol Errors**: Mismatch counter (`GRebels.LayoutMismatchCount`) tracking any unexpected packet lengths.

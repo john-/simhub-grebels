@@ -56,6 +56,9 @@ namespace SimHub.GRebels
         private readonly int _collisionCountIdx;
         private readonly int _hitStrengthIdx;
         private readonly int _collisionStrengthIdx;
+        private readonly int _impactDirXIdx;
+        private readonly int _impactDirYIdx;
+        private readonly int _impactDirZIdx;
         private readonly int _vxIdx;
         private readonly int _vyIdx;
         private readonly int _vzIdx;
@@ -139,9 +142,12 @@ namespace SimHub.GRebels
             _collisionCountIdx = _compiledMap.GetFieldIndex("CollisionCount");
             _hitStrengthIdx = _compiledMap.GetFieldIndex("HitStrength");
             _collisionStrengthIdx = _compiledMap.GetFieldIndex("CollisionStrength");
-            _vxIdx = _compiledMap.GetFieldIndex("Expanded.Float07");
-            _vyIdx = _compiledMap.GetFieldIndex("Expanded.Float08");
-            _vzIdx = _compiledMap.GetFieldIndex("Expanded.Float09");
+            _impactDirXIdx = _compiledMap.GetFieldIndex("ImpactDirX");
+            _impactDirYIdx = _compiledMap.GetFieldIndex("ImpactDirY");
+            _impactDirZIdx = _compiledMap.GetFieldIndex("ImpactDirZ");
+            _vxIdx = _compiledMap.GetFieldIndex("LateralVelocity");
+            _vyIdx = _compiledMap.GetFieldIndex("VerticalVelocity");
+            _vzIdx = _compiledMap.GetFieldIndex("LongitudinalVelocity");
         }
 
         public Frame Current { get { return _current; } }
@@ -389,7 +395,7 @@ namespace SimHub.GRebels
 
             if (_settings.DumpFirstPackets > 0 && Interlocked.Increment(ref _dumped) <= _settings.DumpFirstPackets)
             {
-                global::SimHub.Logging.Current.Debug(
+                global::SimHub.Logging.Current.Info(
                     "[SimHubGRebels] packet #" + sequence + " len=" + count + " " + HexDump(payload));
             }
 
@@ -556,30 +562,62 @@ namespace SimHub.GRebels
 
         private void DetermineCollisionDirection(Frame frame)
         {
+            if (_impactDirXIdx >= 0 && _impactDirYIdx >= 0 && _impactDirZIdx >= 0)
+            {
+                double ix = frame.GetNumber(_impactDirXIdx);
+                double iy = frame.GetNumber(_impactDirYIdx);
+                double iz = frame.GetNumber(_impactDirZIdx);
+
+                if (!double.IsNaN(ix) && !double.IsNaN(iy) && !double.IsNaN(iz) &&
+                    (Math.Abs(ix) > 0.001 || Math.Abs(iy) > 0.001 || Math.Abs(iz) > 0.001))
+                {
+                    double ax = Math.Abs(ix);
+                    double ay = Math.Abs(iy);
+                    double az = Math.Abs(iz);
+
+                    if (ax >= ay && ax >= az)
+                    {
+                        if (ix > 0) { _lastCollisionDirection = "Front"; _lastCollisionDirectionCode = 1; }
+                        else { _lastCollisionDirection = "Rear"; _lastCollisionDirectionCode = 2; }
+                    }
+                    else if (ay >= ax && ay >= az)
+                    {
+                        if (iy > 0) { _lastCollisionDirection = "Right"; _lastCollisionDirectionCode = 4; }
+                        else { _lastCollisionDirection = "Left"; _lastCollisionDirectionCode = 3; }
+                    }
+                    else
+                    {
+                        if (iz > 0) { _lastCollisionDirection = "Top"; _lastCollisionDirectionCode = 6; }
+                        else { _lastCollisionDirection = "Bottom"; _lastCollisionDirectionCode = 5; }
+                    }
+                    return;
+                }
+            }
+
             if (_prevVx.HasValue && _prevVy.HasValue && _prevVz.HasValue &&
                 _vxIdx >= 0 && _vyIdx >= 0 && _vzIdx >= 0)
             {
-                double dvx = frame.GetNumber(_vxIdx) - _prevVx.Value;
-                double dvy = frame.GetNumber(_vyIdx) - _prevVy.Value;
-                double dvz = frame.GetNumber(_vzIdx) - _prevVz.Value;
+                double dLat = frame.GetNumber(_vxIdx) - _prevVx.Value;
+                double dVert = frame.GetNumber(_vyIdx) - _prevVy.Value;
+                double dLong = frame.GetNumber(_vzIdx) - _prevVz.Value;
 
-                double ax = Math.Abs(dvx);
-                double ay = Math.Abs(dvy);
-                double az = Math.Abs(dvz);
+                double aLat = Math.Abs(dLat);
+                double aVert = Math.Abs(dVert);
+                double aLong = Math.Abs(dLong);
 
-                if (ax > ay && ax > az)
+                if (aLong >= aLat && aLong >= aVert)
                 {
-                    if (dvx < 0) { _lastCollisionDirection = "Front"; _lastCollisionDirectionCode = 1; }
+                    if (dLong < 0) { _lastCollisionDirection = "Front"; _lastCollisionDirectionCode = 1; }
                     else { _lastCollisionDirection = "Rear"; _lastCollisionDirectionCode = 2; }
                 }
-                else if (ay > ax && ay > az)
+                else if (aLat >= aLong && aLat >= aVert)
                 {
-                    if (dvy > 0) { _lastCollisionDirection = "Left"; _lastCollisionDirectionCode = 3; }
+                    if (dLat > 0) { _lastCollisionDirection = "Left"; _lastCollisionDirectionCode = 3; }
                     else { _lastCollisionDirection = "Right"; _lastCollisionDirectionCode = 4; }
                 }
-                else if (az > ax && az > ay)
+                else if (aVert >= aLong && aVert >= aLat)
                 {
-                    if (dvz < 0) { _lastCollisionDirection = "Bottom"; _lastCollisionDirectionCode = 5; }
+                    if (dVert < 0) { _lastCollisionDirection = "Bottom"; _lastCollisionDirectionCode = 5; }
                     else { _lastCollisionDirection = "Top"; _lastCollisionDirectionCode = 6; }
                 }
                 else

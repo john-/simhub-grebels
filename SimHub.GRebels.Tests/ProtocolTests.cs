@@ -56,10 +56,10 @@ namespace SimHub.GRebels.Tests
             settings.Fields.Fields.Should().NotBeEmpty();
 
             // Expected packet size in current configuration is 236
-            settings.Fields.ExpectedSize.Should().Be(236);
+            settings.Fields.ExpectedSize.Should().BeNull();
 
             // Largest offset in fields must fit in expected size
-            settings.Fields.LargestOffset.Should().BeLessOrEqualTo(236);
+            settings.Fields.LargestOffset.Should().BeLessOrEqualTo(264);
 
             // Verify compiled map builds without exceptions
             var compiled = new CompiledFieldMap(settings.Fields);

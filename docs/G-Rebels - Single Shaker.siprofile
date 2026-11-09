@@ -277,6 +277,61 @@
         "Frequency": 44,
         "OutputType": "ToneOutput"
       }
+    },
+    {
+      "ContainerType": "CustomEffectContainer",
+      "IsEnabled": true,
+      "Gain": 85.0,
+      "Description": "Boost",
+      "FrontLeftFormula": {
+        "JSExt": 0,
+        "Interpreter": 1,
+        "Expression": "return $prop('GRebelsTelemetryPlugin.GRebels.BoostActive') > 0 ? 100 : 0;\r\n"
+      },
+      "FrontRightFormula": {
+        "Expression": ""
+      },
+      "RearLeftFormula": {
+        "Expression": ""
+      },
+      "RearRightFormula": {
+        "Expression": ""
+      },
+      "ForceFrequencies": false,
+      "FrontLeftFrequencyFormula": {
+        "Expression": ""
+      },
+      "FrontRightFrequencyFormula": {
+        "Expression": ""
+      },
+      "RearLeftFrequencyFormula": {
+        "Expression": ""
+      },
+      "RearRightFrequencyFormula": {
+        "Expression": ""
+      },
+      "AlwaysExecute": false,
+      "ContainerId": "0aaba2e3-637f-45bd-8a8b-c9d24382ec3b",
+      "AggregationMode": "Mono",
+      "Filter": {
+        "GammaValue": 1.0,
+        "InputGain": 100.0,
+        "MinimumForce": 0,
+        "Threshold": 0,
+        "FilterType": "GammaFilter"
+      },
+      "Output": {
+        "UseHighFrequency": false,
+        "HighFrequency": 50,
+        "WhiteNoise": 10,
+        "UseWhiteNoise": false,
+        "FrequencyBasedOnPreFilter": false,
+        "UsePrehemptiveMode": false,
+        "Frequency": 48,
+        "AssignToChannelGroup": false,
+        "ChannelGroupName": null,
+        "OutputType": "ToneOutput"
+      }
     }
   ],
   "AutoCalibrationRatio2": 100,

@@ -17,6 +17,8 @@ namespace SimHub.GRebels
         private TextBlock _tbStatus;
         private TextBlock _tbVersion;
         private TextBlock _tbBind;
+        private TextBlock _tbCraft;
+        private TextBlock _tbLocation;
         private TextBlock _tbPackets;
         private TextBlock _tbRate;
         private TextBlock _tbLastLength;
@@ -150,6 +152,8 @@ namespace SimHub.GRebels
             AddRow("Plugin Version:", out _tbVersion);
             AddRow("Receiver Status:", out _tbStatus);
             AddRow("UDP Endpoint:", out _tbBind);
+            AddRow("Active Craft:", out _tbCraft);
+            AddRow("Location / Sector:", out _tbLocation);
             AddRow("Packets Received:", out _tbPackets);
             AddRow("Packet Rate:", out _tbRate);
             AddRow("Last Packet Size:", out _tbLastLength);
@@ -170,31 +174,42 @@ namespace SimHub.GRebels
             };
             stack.Children.Add(note);
 
-            // GitHub link
-            var linkBlock = new TextBlock
+            // Links panel
+            var linksPanel = new StackPanel
             {
-                Margin = new Thickness(0, 15, 0, 0),
-                FontSize = 12
+                Orientation = Orientation.Vertical,
+                Margin = new Thickness(0, 15, 0, 0)
             };
-            var hyperlink = new Hyperlink(new Run("GitHub Repository & Documentation (github.com/john-/simhub-grebels)"))
+
+            var gitLinkBlock = new TextBlock { FontSize = 12, Margin = new Thickness(0, 0, 0, 4) };
+            var gitHyperlink = new Hyperlink(new Run("GitHub Repository & Documentation (github.com/john-/simhub-grebels)"))
             {
                 NavigateUri = new Uri("https://github.com/john-/simhub-grebels"),
                 Foreground = new SolidColorBrush(Color.FromRgb(0x58, 0xa6, 0xff))
             };
-            hyperlink.RequestNavigate += (s, e) =>
+            gitHyperlink.RequestNavigate += (s, e) =>
             {
-                try
-                {
-                    if (e.Uri != null && (e.Uri.Scheme == Uri.UriSchemeHttp || e.Uri.Scheme == Uri.UriSchemeHttps))
-                    {
-                        Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true });
-                    }
-                }
-                catch { }
+                try { if (e.Uri != null) Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true }); } catch { }
                 e.Handled = true;
             };
-            linkBlock.Inlines.Add(hyperlink);
-            stack.Children.Add(linkBlock);
+            gitLinkBlock.Inlines.Add(gitHyperlink);
+            linksPanel.Children.Add(gitLinkBlock);
+
+            var docLinkBlock = new TextBlock { FontSize = 12 };
+            var docHyperlink = new Hyperlink(new Run("Official G-Rebels Telemetry Specification (reakktor.com/htm/gr_telemetry.htm)"))
+            {
+                NavigateUri = new Uri("https://reakktor.com/htm/gr_telemetry.htm"),
+                Foreground = new SolidColorBrush(Color.FromRgb(0x58, 0xa6, 0xff))
+            };
+            docHyperlink.RequestNavigate += (s, e) =>
+            {
+                try { if (e.Uri != null) Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true }); } catch { }
+                e.Handled = true;
+            };
+            docLinkBlock.Inlines.Add(docHyperlink);
+            linksPanel.Children.Add(docLinkBlock);
+
+            stack.Children.Add(linksPanel);
 
             root.Children.Add(stack);
             Content = root;
@@ -222,6 +237,11 @@ namespace SimHub.GRebels
             _tbLastLength.Text = $"{r.LastLength} bytes";
             _tbAge.Text = r.Current.HasData ? $"{r.Current.AgeSeconds:0.0} s" : "N/A (No packets)";
             _tbMismatch.Text = r.LengthMismatchCount.ToString("N0");
+
+            int vehIdx = s?.CompiledFields?.GetStringIndex("VehicleName") ?? -1;
+            int locIdx = s?.CompiledFields?.GetStringIndex("Location") ?? -1;
+            _tbCraft.Text = !_plugin.IsFeedStale && vehIdx >= 0 ? (r.Current.GetString(vehIdx) ?? "-") : "-";
+            _tbLocation.Text = !_plugin.IsFeedStale && locIdx >= 0 ? (r.Current.GetString(locIdx) ?? "-") : "-";
         }
     }
 }

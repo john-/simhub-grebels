@@ -12,16 +12,23 @@ namespace SimHub.GRebels.Tests
             var settings = new PluginSettings();
             var map = new FieldMap();
 
-            // Set up fields required for weapon counts, hits, and collision direction
+            // Set up fields required for weapon counts, hits, vitals, and collision direction
             map.Fields["PrimaryCount"] = new FieldSpec { Type = "int", Offset = 0 };
             map.Fields["SecondaryCount"] = new FieldSpec { Type = "int", Offset = 4 };
             map.Fields["HitCount"] = new FieldSpec { Type = "int", Offset = 8 };
             map.Fields["HitStrength"] = new FieldSpec { Type = "float", Offset = 12 };
             map.Fields["CollisionCount"] = new FieldSpec { Type = "int", Offset = 16 };
             map.Fields["CollisionStrength"] = new FieldSpec { Type = "float", Offset = 20 };
-            map.Fields["Expanded.Float07"] = new FieldSpec { Type = "float", Offset = 24 }; // Surge (Vx)
-            map.Fields["Expanded.Float08"] = new FieldSpec { Type = "float", Offset = 28 }; // Sway (Vy)
-            map.Fields["Expanded.Float09"] = new FieldSpec { Type = "float", Offset = 32 }; // Heave (Vz)
+            map.Fields["LateralVelocity"] = new FieldSpec { Type = "float", Offset = 24 }; // Sway
+            map.Fields["VerticalVelocity"] = new FieldSpec { Type = "float", Offset = 28 }; // Heave
+            map.Fields["LongitudinalVelocity"] = new FieldSpec { Type = "float", Offset = 32 }; // Surge
+            map.Fields["ImpactDirX"] = new FieldSpec { Type = "float", Offset = 36 };
+            map.Fields["ImpactDirY"] = new FieldSpec { Type = "float", Offset = 40 };
+            map.Fields["ImpactDirZ"] = new FieldSpec { Type = "float", Offset = 44 };
+            map.Fields["BoostActive"] = new FieldSpec { Type = "int", Offset = 48 };
+            map.Fields["BoostLevel"] = new FieldSpec { Type = "float", Offset = 52 };
+            map.Fields["Hull"] = new FieldSpec { Type = "float", Offset = 56 };
+            map.Fields["Shield"] = new FieldSpec { Type = "float", Offset = 60 };
 
             settings.Fields = map;
             settings.CompiledFields = new CompiledFieldMap(map);
@@ -36,20 +43,34 @@ namespace SimHub.GRebels.Tests
             float hitStrength = 0f,
             int collisionCount = 0,
             float collisionStrength = 0f,
-            float surge = 0f,
             float sway = 0f,
-            float heave = 0f)
+            float heave = 0f,
+            float surge = 0f,
+            float impactDirX = 0f,
+            float impactDirY = 0f,
+            float impactDirZ = 0f,
+            int boostActive = 0,
+            float boostLevel = 0f,
+            float hull = 1f,
+            float shield = 1f)
         {
-            byte[] packet = new byte[36];
+            byte[] packet = new byte[64];
             BitConverter.GetBytes(primaryCount).CopyTo(packet, 0);
             BitConverter.GetBytes(secondaryCount).CopyTo(packet, 4);
             BitConverter.GetBytes(hitCount).CopyTo(packet, 8);
             BitConverter.GetBytes(hitStrength).CopyTo(packet, 12);
             BitConverter.GetBytes(collisionCount).CopyTo(packet, 16);
             BitConverter.GetBytes(collisionStrength).CopyTo(packet, 20);
-            BitConverter.GetBytes(surge).CopyTo(packet, 24);
-            BitConverter.GetBytes(sway).CopyTo(packet, 28);
-            BitConverter.GetBytes(heave).CopyTo(packet, 32);
+            BitConverter.GetBytes(sway).CopyTo(packet, 24);
+            BitConverter.GetBytes(heave).CopyTo(packet, 28);
+            BitConverter.GetBytes(surge).CopyTo(packet, 32);
+            BitConverter.GetBytes(impactDirX).CopyTo(packet, 36);
+            BitConverter.GetBytes(impactDirY).CopyTo(packet, 40);
+            BitConverter.GetBytes(impactDirZ).CopyTo(packet, 44);
+            BitConverter.GetBytes(boostActive).CopyTo(packet, 48);
+            BitConverter.GetBytes(boostLevel).CopyTo(packet, 52);
+            BitConverter.GetBytes(hull).CopyTo(packet, 56);
+            BitConverter.GetBytes(shield).CopyTo(packet, 60);
             return packet;
         }
 
@@ -253,6 +274,38 @@ namespace SimHub.GRebels.Tests
 
             receiver.DrainEvents(events);
             events.Count.Should().Be(64); // Clamped at MaxPendingEvents
+        }
+
+        [Fact]
+        public void NativeImpactVector_ShouldDetermineAccurateDirection()
+        {
+            var (_, receiver) = CreateReceiver();
+            var events = new List<string>();
+
+            // Baseline
+            receiver.IngestPacket(CreatePacket(collisionCount: 0), sequence: 1);
+            receiver.DrainEvents(events);
+
+            // Front collision via native impact vector (X > 0)
+            receiver.IngestPacket(CreatePacket(collisionCount: 1, collisionStrength: 100f, impactDirX: 1.0f, impactDirY: 0.1f, impactDirZ: 0f), sequence: 2);
+            receiver.DrainEvents(events);
+            events.Should().Contain("CollisionReceived");
+            receiver.LastCollisionDirection.Should().Be("Front");
+            receiver.LastCollisionDirectionCode.Should().Be(1);
+
+            // Right flank impact via native vector (Y > 0)
+            events.Clear();
+            receiver.IngestPacket(CreatePacket(collisionCount: 2, collisionStrength: 80f, impactDirX: 0.1f, impactDirY: 0.95f, impactDirZ: 0f), sequence: 3);
+            receiver.DrainEvents(events);
+            receiver.LastCollisionDirection.Should().Be("Right");
+            receiver.LastCollisionDirectionCode.Should().Be(4);
+
+            // Left flank impact via native vector (Y < 0)
+            events.Clear();
+            receiver.IngestPacket(CreatePacket(collisionCount: 3, collisionStrength: 80f, impactDirX: 0.1f, impactDirY: -0.95f, impactDirZ: 0f), sequence: 4);
+            receiver.DrainEvents(events);
+            receiver.LastCollisionDirection.Should().Be("Left");
+            receiver.LastCollisionDirectionCode.Should().Be(3);
         }
     }
 }

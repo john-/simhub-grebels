@@ -18,9 +18,9 @@ namespace SimHub.GRebels.Tests
             map.Fields["HitStrength"] = new FieldSpec { Type = "float", Offset = 12 };
             map.Fields["CollisionCount"] = new FieldSpec { Type = "int", Offset = 16 };
             map.Fields["CollisionStrength"] = new FieldSpec { Type = "float", Offset = 20 };
-            map.Fields["Expanded.Float07"] = new FieldSpec { Type = "float", Offset = 24 }; // Vx
-            map.Fields["Expanded.Float08"] = new FieldSpec { Type = "float", Offset = 28 }; // Vy
-            map.Fields["Expanded.Float09"] = new FieldSpec { Type = "float", Offset = 32 }; // Vz (Heave)
+            map.Fields["LateralVelocity"] = new FieldSpec { Type = "float", Offset = 24 }; // Sway
+            map.Fields["VerticalVelocity"] = new FieldSpec { Type = "float", Offset = 28 }; // Heave
+            map.Fields["LongitudinalVelocity"] = new FieldSpec { Type = "float", Offset = 32 }; // Surge
 
             settings.Fields = map;
             settings.CompiledFields = new CompiledFieldMap(map);
@@ -35,9 +35,9 @@ namespace SimHub.GRebels.Tests
             float hitStrength = 0f,
             int collisionCount = 0,
             float collisionStrength = 0f,
-            float vx = 0f,
-            float vy = 0f,
-            float vz = 0f)
+            float lateralVel = 0f,
+            float verticalVel = 0f,
+            float longitudinalVel = 0f)
         {
             byte[] packet = new byte[36];
             BitConverter.GetBytes(primaryCount).CopyTo(packet, 0);
@@ -46,9 +46,9 @@ namespace SimHub.GRebels.Tests
             BitConverter.GetBytes(hitStrength).CopyTo(packet, 12);
             BitConverter.GetBytes(collisionCount).CopyTo(packet, 16);
             BitConverter.GetBytes(collisionStrength).CopyTo(packet, 20);
-            BitConverter.GetBytes(vx).CopyTo(packet, 24);
-            BitConverter.GetBytes(vy).CopyTo(packet, 28);
-            BitConverter.GetBytes(vz).CopyTo(packet, 32);
+            BitConverter.GetBytes(lateralVel).CopyTo(packet, 24);
+            BitConverter.GetBytes(verticalVel).CopyTo(packet, 28);
+            BitConverter.GetBytes(longitudinalVel).CopyTo(packet, 32);
             return packet;
         }
 
@@ -58,18 +58,18 @@ namespace SimHub.GRebels.Tests
             var (_, receiver) = CreateReceiver();
             var events = new List<string>();
 
-            // Baseline with vz = 0
-            receiver.IngestPacket(CreatePacket(collisionCount: 0, vz: 0f), sequence: 1);
+            // Baseline with verticalVel = 0
+            receiver.IngestPacket(CreatePacket(collisionCount: 0, verticalVel: 0f), sequence: 1);
             receiver.DrainEvents(events);
 
-            // 1. Bottom impact: craft pushed upward or downward deceleration (dvz < 0)
-            receiver.IngestPacket(CreatePacket(collisionCount: 1, collisionStrength: 60f, vz: -25f), sequence: 2);
+            // 1. Bottom impact: craft pushed upward or downward deceleration (dVert < 0)
+            receiver.IngestPacket(CreatePacket(collisionCount: 1, collisionStrength: 60f, verticalVel: -25f), sequence: 2);
             receiver.DrainEvents(events);
             receiver.LastCollisionDirection.Should().Be("Bottom");
             receiver.LastCollisionDirectionCode.Should().Be(5);
 
-            // 2. Top impact: roof crash (dvz > 0)
-            receiver.IngestPacket(CreatePacket(collisionCount: 2, collisionStrength: 60f, vz: 20f), sequence: 3);
+            // 2. Top impact: roof crash (dVert > 0)
+            receiver.IngestPacket(CreatePacket(collisionCount: 2, collisionStrength: 60f, verticalVel: 20f), sequence: 3);
             receiver.DrainEvents(events);
             receiver.LastCollisionDirection.Should().Be("Top");
             receiver.LastCollisionDirectionCode.Should().Be(6);
