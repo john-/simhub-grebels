@@ -23,6 +23,14 @@ namespace SimHub.GRebels
         /// <summary>Pre-compiled index into the flat frame Numbers array for O(1) zero-allocation access.</summary>
         [JsonIgnore]
         public int FieldIndex = -1;
+
+        /// <summary>Pre-compiled index into the flat frame Strings array for O(1) zero-allocation access.</summary>
+        [JsonIgnore]
+        public int StringIndex = -1;
+
+        /// <summary>Indicates whether this entry maps to a string field.</summary>
+        [JsonIgnore]
+        public bool IsString => StringIndex >= 0;
     }
 
     /// <summary>
@@ -194,6 +202,7 @@ namespace SimHub.GRebels
                         "Properties entry \"" + entry.Property + "\" has Min greater than Max");
                 }
                 entry.FieldIndex = CompiledFields.GetFieldIndex(entry.Field);
+                entry.StringIndex = CompiledFields.GetStringIndex(entry.Field);
             }
 
             foreach (var spec in EdgeEvents ?? new List<EdgeEventSpec>())

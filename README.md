@@ -27,6 +27,7 @@ This plugin listens for incoming UDP telemetry packets from G-Rebels, parses the
 - **SimHub** (v8 or v9+) on Windows
 - **G-Rebels** on PC (Steam)
 - Telemetry output configured to **Expanded** mode (game update 2026-10-27+)
+- Technical Protocol Reference: [Reakktor Official Telemetry Specification](https://reakktor.com/htm/gr_telemetry.htm)
 
 ---
 
@@ -55,9 +56,12 @@ In G-Rebels, configure telemetry output:
 2. Open **Options > Input > Peripherals > Telemetry**.
 3. Set the following options:
    - **Enable Telemetry**: `On`
-   - **Output**: `Expanded` *(Required)*
+   - **Output**: `Expanded` *(Required: default `Sim Racing Studio` profile only sends 11 basic motion channels and lacks vitals, boost, weapons, and impact vectors)*
    - **IP**: `127.0.0.1` *(or your SimHub machine IP if running on a dual-PC setup)*
    - **Port**: `33001` *(Default)*
+
+> [!WARNING]
+> **IP Configuration Notice**: The official Reakktor documentation page contains a typographical error stating the default IP is `27.0.0.1`. Do not enter `27.0.0.1`; always use `127.0.0.1` (local loopback) on a single PC.
 
 ---
 
@@ -65,31 +69,44 @@ In G-Rebels, configure telemetry output:
 
 All properties are prefixed with `GRebels.` in SimHub formulas (e.g., `$prop('GRebels.Pitch')`).
 
-### Attitude & Dynamics
+### Attitude & Flight Kinematics
 | Property | Range | Description |
 |---|---|---|
-| `GRebels.Pitch` | `-90 .. +90` | Craft pitch in degrees (nose up/down). |
-| `GRebels.Roll` | `-180 .. +180` | Craft roll in degrees. |
+| `GRebels.Pitch` | `-180 .. +180` | Craft pitch angle in degrees (nose up/down). |
+| `GRebels.Roll` | `-180 .. +180` | Craft roll angle in degrees. |
 | `GRebels.Yaw` | `-180 .. +180` | Craft yaw angle in degrees. |
-| `GRebels.Heading` | `-180 .. +180` | Craft heading in degrees. |
-| `GRebels.LocalSurgeMs2` | `-10 .. +10` | Longitudinal acceleration (m/s^2). |
-| `GRebels.LocalSwayMs2` | `-10 .. +10` | Lateral acceleration (m/s^2). |
-| `GRebels.LocalHeaveMs2` | `-10 .. +10` | Vertical acceleration (m/s^2). |
-| `GRebels.SpeedRaw` | `0 .. 100000` | Raw craft speed (uncalibrated units). |
+| `GRebels.Heading` | `-180 .. +180` | Craft compass heading in degrees. |
+| `GRebels.Speed` | `0 .. 100000` | Craft speed. |
+| `GRebels.LongitudinalAcc` | `-1000 .. +1000` | Longitudinal acceleration (Surge). |
+| `GRebels.LateralAcc` | `-1000 .. +1000` | Lateral acceleration (Sway). |
+| `GRebels.VerticalAcc` | `-1000 .. +1000` | Vertical acceleration (Heave). |
+
+### 3D Velocities
+| Property | Range | Description |
+|---|---|---|
+| `GRebels.LateralVelocity` | `-100000 .. +100000` | Strafe / sway velocity. |
+| `GRebels.VerticalVelocity` | `-100000 .. +100000` | Climb / sink vertical velocity. |
+| `GRebels.LongitudinalVelocity`| `-100000 .. +100000` | Forward / reverse longitudinal velocity. |
 
 ### Control Inputs & Thrust
 | Property | Range | Description |
 |---|---|---|
-| `GRebels.Throttle` | `-1.0 .. +1.0` | Signed forward thrust: `-1.0` (full reverse), `0.0` (neutral), `+1.0` (full forward). |
-| `GRebels.ThrottlePercent`| `0 .. 100` | Normalized forward throttle percentage: `0%` reverse, `50%` neutral, `100%` forward. |
-| `GRebels.ThrottleTotalPercent` | `0 .. 100` | Composite 3-axis thrust magnitude percent (sqrt(fwd^2 + vert^2 + lat^2) * 100%). |
-| `GRebels.ThrottleVertical` | `-1.0 .. +1.0` | Signed vertical thruster input (-1 down, +1 up). |
-| `GRebels.ThrottleVerticalPercent` | `0 .. 100` | Normalized vertical thruster percentage (50% neutral). |
-| `GRebels.ThrottleLateral` | `-1.0 .. +1.0` | Signed lateral/strafe thruster input (-1 left, +1 right). |
-| `GRebels.ThrottleLateralPercent` | `0 .. 100` | Normalized lateral thruster percentage (50% neutral). |
-| `GRebels.InputForward` / `Input.Forward` | `-1.0 .. +1.0` | Raw forward/reverse axis. |
-| `GRebels.InputVertical` / `Input.Vertical` | `-1.0 .. +1.0` | Raw vertical thruster axis. |
-| `GRebels.InputLateral` / `Input.Lateral` | `-1.0 .. +1.0` | Raw lateral thruster axis. |
+| `GRebels.ThrustMain` / `Throttle` | `-1.0 .. +1.0` | Signed forward thrust: `-1.0` (full reverse), `0.0` (neutral), `+1.0` (full forward). |
+| `GRebels.ThrottlePercent` | `0 .. 100` | Normalized forward throttle percentage: `0%` reverse, `50%` neutral, `100%` forward. |
+| `GRebels.ThrottleTotalPercent` | `0 .. 100` | Composite 3-axis thrust magnitude percent (sqrt(main^2 + vert^2 + lat^2) * 100%). |
+| `GRebels.ThrustVertical` | `-1.0 .. +1.0` | Signed vertical thruster input (-1 down, +1 up). |
+| `GRebels.ThrustLateral` | `-1.0 .. +1.0` | Signed lateral/strafe thruster input (-1 left, +1 right). |
+
+### Spacecraft Vitals & Engine Boost
+| Property | Range | Description |
+|---|---|---|
+| `GRebels.Shield` | `0.0 .. 1.0` | Raw shield energy level. |
+| `GRebels.ShieldPercent` | `0 .. 100` | Shield energy percentage for cockpit gauges. |
+| `GRebels.Hull` | `0.0 .. 1.0` | Raw hull structural integrity. |
+| `GRebels.HullPercent` | `0 .. 100` | Hull integrity percentage for cockpit gauges. |
+| `GRebels.BoostActive` | `0 or 1` | `1` when engine boost/afterburner is engaged, `0` otherwise. |
+| `GRebels.BoostLevel` | `0.0 .. 1.0` | Raw boost reserve charge level. |
+| `GRebels.BoostPercent` | `0 .. 100` | Boost tank reserve percentage. |
 
 ### Weapons & Combat Haptics
 | Property | Range | Description |
@@ -99,24 +116,27 @@ All properties are prefixed with `GRebels.` in SimHub formulas (e.g., `$prop('GR
 | `GRebels.SecondaryCount` | `0 .. 2147483647` | Cumulative missiles fired. |
 | `GRebels.SecondaryFired` | `0 or 100` | Pulses to 100 on missile discharge (duration: `WeaponPulseMs`). |
 | `GRebels.HitCount` | `0 .. 2147483647` | Cumulative projectile hits taken. |
-| `GRebels.HitStrength` | `0 .. 30` | Damage/energy rating of the latest projectile hit. |
+| `GRebels.HitStrength` | `0 .. 1000` | Damage/energy rating of the latest projectile hit. |
 | `GRebels.HitFired` | `0 or 100` | Pulses to 100 upon taking damage. |
 | `GRebels.HitImpulse` | `0.0 .. 100.0` | Decaying haptic impulse proportional to incoming hit strength. |
-| `GRebels.CollisionCount` | `0 .. 2147483647` | Cumulative physical collision counter (resets on respawn; freezes during continuous contact). |
-| `GRebels.CollisionStrength` | `-250 .. 250` | Signed collision contact force from game packet (compressive load; negative for rigid wall hits). |
-| `GRebels.CollisionStrengthAbs` | `0 .. 250` | Absolute collision magnitude for dashboard gauges and UI bars. |
-| `GRebels.CollisionLastStrength` | `0 .. 250` | Latched strength of the most recent collision (preserved across zero resets). |
+| `GRebels.CollisionCount` | `0 .. 2147483647` | Cumulative physical collision counter. |
+| `GRebels.CollisionStrength` | `-1000 .. +1000` | Contact force from game packet. |
+| `GRebels.CollisionStrengthAbs`| `0 .. 1000` | Absolute collision magnitude for dashboard gauges and UI bars. |
+| `GRebels.CollisionLastStrength`| `0 .. 1000` | Latched strength of the most recent collision. |
 | `GRebels.CollisionFired` | `0 or 100` | Pulses to 100 upon collision impact (duration: `CollisionPulseMs`). |
 | `GRebels.CollisionImpulse` | `0.0 .. 100.0` | Decaying haptic impulse proportional to collision strength. |
 | `GRebels.CollisionDirection` | `string` | Dominant impact direction during pulse: `Front`, `Rear`, `Left`, `Right`, `Bottom`, `Top`, or `None`. |
-| `GRebels.CollisionDirectionCode` | `0 .. 6` | Numeric impact direction: `0`=None, `1`=Front, `2`=Rear, `3`=Left, `4`=Right, `5`=Bottom, `6`=Top. |
+| `GRebels.CollisionDirectionCode`| `0 .. 6` | Numeric impact direction: `0`=None, `1`=Front, `2`=Rear, `3`=Left, `4`=Right, `5`=Bottom, `6`=Top. |
+| `GRebels.ImpactDirX` | `float` | Native impact normal vector X (forward / rear). |
+| `GRebels.ImpactDirY` | `float` | Native impact normal vector Y (right / left). |
+| `GRebels.ImpactDirZ` | `float` | Native impact normal vector Z (up / down). |
 
-### Raw Velocity-like Telemetry (Advanced Tuning)
-| Property | Range | Description |
+### Craft & Session Metadata
+| Property | Type | Description |
 |---|---|---|
-| `GRebels.Expanded.Float07` | `-100000 .. 100000` | Raw forward velocity-like value (negative in reverse). |
-| `GRebels.Expanded.Float08` | `-100000 .. 100000` | Raw lateral velocity-like value. |
-| `GRebels.Expanded.Float09` | `-100000 .. 100000` | Raw vertical velocity-like value. |
+| `GRebels.Game` | String | Game origin identifier (`"G-Rebels"`). |
+| `GRebels.VehicleName` | String | Active spacecraft name (e.g. `"Razorback"`, `"Viper"`). |
+| `GRebels.Location` | String | Active sector / venue name (e.g. `"Neo-Veridia Orbit"`). |
 
 ### SimHub Events
 The plugin triggers native SimHub events that can be directly mapped to ShakeIt or action triggers:
@@ -128,12 +148,12 @@ The plugin triggers native SimHub events that can be directly mapped to ShakeIt 
 ### Diagnostics & Connection State
 | Property | Type | Description |
 |---|---|---|
-| `GRebels.PluginVersion` | String | Installed plugin version and git commit hash (e.g. `1.0.0 (025443e)`). |
+| `GRebels.PluginVersion` | String | Installed plugin version and git commit hash (e.g. `1.0.1 (ce78d2a)`). |
 | `GRebels.PacketCount` | Integer | Total telemetry packets received. |
 | `GRebels.PacketRate` | Double | Live telemetry rate in packets per second (Hz). |
 | `GRebels.FeedStale` | Boolean | `true` when no packet has arrived within `StaleSeconds`. |
 | `GRebels.FeedAge` | Double | Seconds since the last received packet. |
-| `GRebels.LastPacketSize` | Integer | Size in bytes of the most recent UDP payload. |
+| `GRebels.LastPacketSize` | Integer | Size in bytes of the most recent UDP payload (264 bytes in Expanded mode). |
 | `GRebels.PacketLengths` | String | Distribution breakdown of received packet sizes. |
 | `GRebels.LayoutMismatchCount` | Integer | Count of packets received with non-standard payload lengths. |
 

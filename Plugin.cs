@@ -17,8 +17,7 @@ namespace SimHub.GRebels
     /// the payload against a JSON-supplied field map, and republishes the values as
     /// SimHub properties and events.
     ///
-    /// The field map is external precisely because the modified format is not
-    /// publicly documented; see SimHub.GRebels.json.
+    /// Official telemetry specification: https://reakktor.com/htm/gr_telemetry.htm
     /// </summary>
     [PluginDescription("Reads G-Rebels UDP telemetry and exposes it to SimHub. GitHub: https://github.com/john-/simhub-grebels")]
     [PluginAuthor("John")]
@@ -173,9 +172,9 @@ namespace SimHub.GRebels
             if (compiled != null)
             {
                 _collisionStrengthIdx = compiled.GetFieldIndex("CollisionStrength");
-                _fwdIndex = compiled.GetFieldIndex("InputForward");
-                _vertIndex = compiled.GetFieldIndex("InputVertical");
-                _latIndex = compiled.GetFieldIndex("InputLateral");
+                _fwdIndex = compiled.GetFieldIndex("ThrustMain");
+                _vertIndex = compiled.GetFieldIndex("ThrustVertical");
+                _latIndex = compiled.GetFieldIndex("ThrustLateral");
             }
 
             Attach("PacketCount", () => (object)(_receiver?.PacketCount ?? 0));
@@ -209,7 +208,7 @@ namespace SimHub.GRebels
 
         private double GetThrottleTotalPercent()
         {
-            if (_receiver == null) return 0.0;
+            if (_receiver == null || IsStale()) return 0.0;
             double fwd = _fwdIndex >= 0 ? _receiver.Current.GetNumber(_fwdIndex) : 0.0;
             double vert = _vertIndex >= 0 ? _receiver.Current.GetNumber(_vertIndex) : 0.0;
             double lat = _latIndex >= 0 ? _receiver.Current.GetNumber(_latIndex) : 0.0;
@@ -233,8 +232,21 @@ namespace SimHub.GRebels
                     continue;
 
                 var captured = entry;
-                Attach(captured.Property, () => (object)ReadMapped(captured));
+                if (captured.IsString)
+                {
+                    Attach(captured.Property, () => (object)ReadStringMapped(captured));
+                }
+                else
+                {
+                    Attach(captured.Property, () => (object)ReadMapped(captured));
+                }
             }
+        }
+
+        internal string ReadStringMapped(PropertyMapEntry entry)
+        {
+            if (_receiver == null || IsStale()) return string.Empty;
+            return entry.StringIndex >= 0 ? _receiver.Current.GetString(entry.StringIndex) : string.Empty;
         }
 
         private void AttachConfiguredEvents()
