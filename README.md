@@ -272,24 +272,42 @@ The repository provides [`deploy.bat`](deploy.bat) to automate building Release 
 
 #### What `deploy.bat` does:
 1. **Detects or validates SimHub target directory**:
-   - Accepts an optional command-line argument: `deploy.bat "C:\Program Files (x86)\SimHub"`
+   - Accepts an optional command-line directory argument (position-independent): e.g. `deploy.bat "C:\Program Files (x86)\SimHub"`
    - Checks the `SIMHUB_DIR` environment variable
    - Checks common installation paths (`C:\Program Files (x86)\SimHub`, `C:\Program Files\SimHub`, `D:\SimHub`, etc.)
    - Prompts for path if not detected automatically
 2. **Validates running processes**: Checks if `SimHubWPF.exe` is running to prevent file-lock errors.
-3. **Builds Release configuration**: Builds `SimHub.GRebels.csproj` in Release mode (or falls back to pre-compiled binaries if Windows .NET SDK is not in PATH).
-4. **Copies artifacts**: Copies `SimHub.GRebels.dll`, `SimHub.GRebels.pdb`, and `SimHub.GRebels.json` to the target directory.
+3. **Flexible build / prebuilt operational modes**:
+   - **Auto (Default)**: Compiles `SimHub.GRebels.csproj` in Release mode if a Windows .NET SDK is detected. If no Windows .NET SDK is available, it automatically deploys pre-compiled binaries from `bin\Release` (ideal for cross-environment workflows like building in WSL and deploying on Windows).
+   - **`--prebuilt`**: Skips SDK detection and always deploys pre-compiled binaries from `bin\Release`.
+   - **`--build`**: Enforces a fresh build using the Windows .NET SDK (fails if the SDK is not present).
+4. **Source staleness check**: When deploying pre-built binaries, verifies that repository source files (`*.cs`, `*.csproj`, `*.json`) are not newer than `SimHub.GRebels.dll`. Can be bypassed with `--allow-stale`.
+5. **Backs up existing files**: Automatically creates `.bak` copies (`SimHub.GRebels.dll.bak`, `SimHub.GRebels.pdb.bak`, `SimHub.GRebels.json.bak`) before overwriting, protecting custom JSON configuration.
+6. **Copies artifacts**: Deploys `SimHub.GRebels.dll`, `SimHub.GRebels.pdb` (if present), and `SimHub.GRebels.json` to the target directory.
 
 #### Usage:
 
 From Command Prompt or PowerShell in the repository directory:
 ```cmd
-:: Auto-detects SimHub path and deploys
+:: Auto-detects SimHub path, builds (or uses prebuilt binaries if no SDK) and deploys:
 deploy.bat
 
-:: Or specify target directory explicitly:
+:: Deploy prebuilt binaries (common workflow: build in WSL, deploy on Windows):
+deploy.bat --prebuilt
+
+:: Force a Windows .NET SDK build and deploy:
+deploy.bat --build
+
+:: Specify target directory explicitly (works with or without flags in any order):
 deploy.bat "C:\Program Files (x86)\SimHub"
-deploy.bat "D:\SimHub"
+deploy.bat --prebuilt "D:\SimHub"
+deploy.bat "D:\SimHub" --build
+
+:: Allow deploying prebuilt binaries even if source files have newer timestamps:
+deploy.bat --prebuilt --allow-stale
+
+:: Show available options and help:
+deploy.bat --help
 ```
 
 ### Manual Deployment Steps

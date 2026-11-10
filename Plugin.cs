@@ -122,6 +122,8 @@ namespace SimHub.GRebels
                 return;
             }
 
+            WarnIfExposed();
+
             global::SimHub.Logging.Current.Info(
                 "[SimHubGRebels] listening on UDP " + _settings.BindAddress + ":" + _settings.Port +
                 ", " + _settings.Fields.Fields.Count + " field(s) mapped" +
@@ -132,6 +134,31 @@ namespace SimHub.GRebels
                 global::SimHub.Logging.Current.Warn(
                     "[SimHubGRebels] no field map configured - packets will be received and " +
                     "counted, but no game values will be published yet.");
+            }
+        }
+
+        /// <summary>
+        /// The game's UDP feed is unauthenticated. Binding beyond loopback lets any host that can
+        /// reach the port feed this plugin telemetry, so say so in the log.
+        /// </summary>
+        internal void WarnIfExposed()
+        {
+            System.Net.IPAddress addr;
+            if (!System.Net.IPAddress.TryParse((_settings.BindAddress ?? "127.0.0.1").Trim(), out addr)) return;
+            if (System.Net.IPAddress.IsLoopback(addr)) return;
+
+            if (string.IsNullOrWhiteSpace(_settings.AllowedSenderIp))
+            {
+                global::SimHub.Logging.Current.Warn(
+                    "[SimHubGRebels] SECURITY: listening on non-loopback address " + _settings.BindAddress +
+                    " with no AllowedSenderIp. Any host that can reach UDP port " + _settings.Port +
+                    " can send telemetry to SimHub. Set AllowedSenderIp to the game PC and firewall the port.");
+            }
+            else
+            {
+                global::SimHub.Logging.Current.Info(
+                    "[SimHubGRebels] listening on non-loopback address; accepting only " + _settings.AllowedSenderIp +
+                    ". Note that UDP source addresses can be spoofed, so also firewall the port.");
             }
         }
 
