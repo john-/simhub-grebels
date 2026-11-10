@@ -258,6 +258,54 @@ namespace SimHub.GRebels.Tests
         }
 
         [Fact]
+        public void EdgeDetection_MultipleEventsOnSameField_ShouldBothTrigger()
+        {
+            var settings = new PluginSettings();
+            var map = new FieldMap();
+            map.Fields["Speed"] = new FieldSpec { Type = "float", Offset = 0 };
+            settings.Fields = map;
+            settings.CompiledFields = new CompiledFieldMap(map);
+
+            settings.EdgeEvents.Add(new EdgeEventSpec
+            {
+                Field = "Speed",
+                Threshold = 50.0,
+                DebounceMs = 0,
+                Event = "SpeedWarning"
+            });
+            settings.EdgeEvents.Add(new EdgeEventSpec
+            {
+                Field = "Speed",
+                Threshold = 100.0,
+                DebounceMs = 0,
+                Event = "SpeedAlarm"
+            });
+            settings.Validate();
+
+            var receiver = new TelemetryReceiver(settings);
+            var events = new List<string>();
+
+            byte[] lowPacket = new byte[4];
+            BitConverter.GetBytes(10.0f).CopyTo(lowPacket, 0);
+
+            byte[] highPacket = new byte[4];
+            BitConverter.GetBytes(120.0f).CopyTo(highPacket, 0);
+
+            // Baseline: 10.0 (below both thresholds)
+            receiver.IngestPacket(lowPacket, sequence: 1);
+            receiver.DrainEvents(events);
+            events.Should().BeEmpty();
+
+            // Rising edge for both: 10.0 -> 120.0 (crosses both 50.0 and 100.0)
+            receiver.IngestPacket(highPacket, sequence: 2);
+            receiver.DrainEvents(events);
+
+            // Both specs must fire without the first spec clobbering the second spec's 'before' value
+            events.Should().Contain("SpeedWarning");
+            events.Should().Contain("SpeedAlarm");
+        }
+
+        [Fact]
         public void DrainEvents_ShouldEnforceQueueMaxCapacity()
         {
             var (_, receiver) = CreateReceiver();

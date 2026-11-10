@@ -42,6 +42,7 @@ namespace SimHub.GRebels
         private const int MaxPendingEvents = 64;
         private const int MaxTrackedLengths = 64;
         private readonly ConcurrentQueue<PendingEvent> _pending = new ConcurrentQueue<PendingEvent>();
+        // Keyed by event name so multiple EdgeEvents on the same field track independent edge state
         private readonly Dictionary<string, double> _lastEdgeValue =
             new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, DateTime> _lastEdgeFire =
@@ -675,10 +676,10 @@ namespace SimHub.GRebels
 
                 double now = frame.GetNumber(spec.FieldIndex);
                 double before;
-                _lastEdgeValue.TryGetValue(spec.Field, out before);
+                _lastEdgeValue.TryGetValue(spec.Event, out before);
 
                 bool rose = before < spec.Threshold && now >= spec.Threshold;
-                _lastEdgeValue[spec.Field] = now;
+                _lastEdgeValue[spec.Event] = now;
 
                 if (!rose) continue;
 

@@ -17,6 +17,8 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
+      id-token: write
+      attestations: write
 
     steps:
       - name: Checkout Code
@@ -89,18 +91,38 @@ jobs:
           Compress-Archive -Path "$distDir/*" -DestinationPath $zipName -Force
           Write-Host "Created release package: $zipName"
           
+          # Compute SHA-256 checksums for release zip and core plugin DLL
+          $zipHash = (Get-FileHash -Path $zipName -Algorithm SHA256).Hash.ToLower()
+          $dllHash = (Get-FileHash -Path "bin/Release/SimHub.GRebels.dll" -Algorithm SHA256).Hash.ToLower()
+          @(
+            "$zipHash  $zipName",
+            "$dllHash  SimHub.GRebels.dll"
+          ) | Out-File -Encoding ascii -FilePath "SHA256SUMS.txt"
+          Write-Host "Generated SHA256SUMS.txt:"
+          Get-Content "SHA256SUMS.txt"
+
           echo "RELEASE_ZIP=$zipName" >> $env:GITHUB_ENV
 
       - name: Upload CI Build Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.RELEASE_ZIP }}
-          path: ${{ env.RELEASE_ZIP }}
+          path: |
+            ${{ env.RELEASE_ZIP }}
+            SHA256SUMS.txt
           retention-days: 14
+
+      - name: Attest Build Provenance
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: ${{ env.RELEASE_ZIP }}
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ env.RELEASE_ZIP }}
+          files: |
+            ${{ env.RELEASE_ZIP }}
+            SHA256SUMS.txt
           generate_release_notes: true

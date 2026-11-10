@@ -310,6 +310,31 @@ deploy.bat --prebuilt --allow-stale
 deploy.bat --help
 ```
 
+### Verifying Release Integrity & Checksums
+
+To verify that your downloaded package or deployed DLL has not been corrupted or tampered with, compare its SHA-256 checksum against [`SHA256SUMS.txt`](https://github.com/john-/simhub-grebels/releases) provided with each release.
+
+#### PowerShell (Built-in on Windows 10/11):
+```powershell
+# Verify the downloaded release zip archive
+Get-FileHash -Path "SimHub.GRebels-v1.1.0.zip" -Algorithm SHA256
+
+# Or verify the deployed DLL
+Get-FileHash -Path "C:\Program Files (x86)\SimHub\SimHub.GRebels.dll" -Algorithm SHA256
+```
+
+#### Command Prompt:
+```cmd
+certutil -hashfile "SimHub.GRebels-v1.1.0.zip" SHA256
+certutil -hashfile "C:\Program Files (x86)\SimHub\SimHub.GRebels.dll" SHA256
+```
+
+#### GitHub CLI (Cryptographic Build Provenance):
+If you have the [GitHub CLI](https://cli.github.com/) installed, you can cryptographically verify that the release binary was built and signed by the official GitHub Actions workflow via Sigstore:
+```bash
+gh attestation verify "SimHub.GRebels-v1.1.0.zip" --repo john-/simhub-grebels
+```
+
 ### Manual Deployment Steps
 
 1. **Close SimHub completely** before copying or updating plugin files.

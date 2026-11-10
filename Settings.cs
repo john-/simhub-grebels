@@ -107,12 +107,38 @@ namespace SimHub.GRebels
         /// loading. Losing the field map is recoverable; a SimHub that won't start is not.
         /// </summary>
         /// <summary>
+        /// Ensures collection and map containers are non-null so subsequent property access
+        /// or partial validation failures do not leave null references.
+        /// </summary>
+        public void Normalize()
+        {
+            if (Fields == null)
+            {
+                Fields = new FieldMap();
+            }
+            if (Fields.Fields == null)
+            {
+                Fields.Fields = new Dictionary<string, FieldSpec>(StringComparer.OrdinalIgnoreCase);
+            }
+            if (Properties == null)
+            {
+                Properties = new List<PropertyMapEntry>();
+            }
+            if (EdgeEvents == null)
+            {
+                EdgeEvents = new List<EdgeEventSpec>();
+            }
+        }
+
+        /// <summary>
         /// Sanity-checks the configuration. Throws with a specific message on the
         /// first problem so a typo in the JSON is reported rather than silently
         /// producing nonsense telemetry.
         /// </summary>
         public void Validate()
         {
+            Normalize();
+
             if (Port < 1 || Port > 65535)
                 throw new ArgumentException("Port " + Port + " is out of range 1-65535");
 
@@ -235,7 +261,9 @@ namespace SimHub.GRebels
                     MetadataPropertyHandling = MetadataPropertyHandling.Ignore,
                     MaxDepth = 32
                 };
-                return JsonConvert.DeserializeObject<PluginSettings>(text, jsonSettings) ?? new PluginSettings();
+                var settings = JsonConvert.DeserializeObject<PluginSettings>(text, jsonSettings) ?? new PluginSettings();
+                settings.Normalize();
+                return settings;
             }
             catch (Exception ex)
             {

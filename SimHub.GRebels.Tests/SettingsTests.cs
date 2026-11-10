@@ -121,5 +121,50 @@ namespace SimHub.GRebels.Tests
                 if (File.Exists(tempFile)) File.Delete(tempFile);
             }
         }
+
+        [Fact]
+        public void Load_NullFieldsWithInvalidStaleSeconds_ShouldNormalizeFieldsAndNotThrowNRE()
+        {
+            string tempFile = Path.GetTempFileName();
+            try
+            {
+                // Config with null Fields and an invalid StaleSeconds triggering early throw in Validate()
+                string json = "{ \"Port\": 33001, \"StaleSeconds\": 0, \"Fields\": null }";
+                File.WriteAllText(tempFile, json);
+
+                var loaded = PluginSettings.Load(tempFile);
+                loaded.Fields.Should().NotBeNull();
+                loaded.Fields.Fields.Should().NotBeNull();
+                loaded.Fields.Fields.Count.Should().Be(0);
+
+                // When Validate is called, it should throw ArgumentException for StaleSeconds, not NullReferenceException
+                var act = () => loaded.Validate();
+                act.Should().Throw<ArgumentException>().WithMessage("*StaleSeconds*");
+                loaded.Fields.Should().NotBeNull();
+                loaded.Fields.Fields.Should().NotBeNull();
+            }
+            finally
+            {
+                if (File.Exists(tempFile)) File.Delete(tempFile);
+            }
+        }
+
+        [Fact]
+        public void Normalize_NullCollections_ShouldInitializeNonNull()
+        {
+            var settings = new PluginSettings
+            {
+                Fields = null,
+                Properties = null,
+                EdgeEvents = null
+            };
+
+            settings.Normalize();
+
+            settings.Fields.Should().NotBeNull();
+            settings.Fields!.Fields.Should().NotBeNull();
+            settings.Properties.Should().NotBeNull();
+            settings.EdgeEvents.Should().NotBeNull();
+        }
     }
 }

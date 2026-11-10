@@ -124,12 +124,13 @@ namespace SimHub.GRebels
 
             WarnIfExposed();
 
+            int fieldCount = _settings.Fields?.Fields?.Count ?? 0;
             global::SimHub.Logging.Current.Info(
                 "[SimHubGRebels] listening on UDP " + _settings.BindAddress + ":" + _settings.Port +
-                ", " + _settings.Fields.Fields.Count + " field(s) mapped" +
-                (_settings.Fields.Fields.Count == 0 ? " (discovery mode)" : ""));
+                ", " + fieldCount + " field(s) mapped" +
+                (fieldCount == 0 ? " (discovery mode)" : ""));
 
-            if (_settings.Fields.Fields.Count == 0)
+            if (fieldCount == 0)
             {
                 global::SimHub.Logging.Current.Warn(
                     "[SimHubGRebels] no field map configured - packets will be received and " +
