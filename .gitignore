@@ -11,3 +11,6 @@ coverage/
 [Ll]ib/
 [Ll]ibs/
 *.zip
+
+## Source demo recordings
+*.mp4

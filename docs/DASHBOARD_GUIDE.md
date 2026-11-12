@@ -41,25 +41,6 @@ Optimized for tablet readability with enlarged high-contrast typography and inst
 
 ![Screen 1: Tactical Flight HUD](tactical_hud_screen1.png)
 
-```text
-+--------------------------------------------------------------------------------+
-| G-REBELS // TACTICAL HUD     [ CRAFT: X-TYPE // SECTOR C ]     LINK: 60.0 HZ OK |
-+---------------------+------------------------------------+---------------------+
-| // AIRSPEED & PROP  |    // FLIGHT VECTOR & ATTITUDE     | // TACTICAL WEAPONS |
-|                     |  PITCH: +08.5°       ROLL: -04.2°  |                     |
-|     420             |                                    | PRIMARY CANNONS     |
-|     KM/H            |              ( O )                 | ROUNDS: 48          |
-| [================-] |        -------[---]-------         | [ CANNON DISCHARGE ]|
-|                     |        ~~~~~~~~~~~~~~~~~~~ HORIZON |                     |
-| THRUST LOAD: 88.5%  |                                    | GUIDED MISSILES     |
-| [================-] |       COMPASS HDG: 284° // YAW     | ORDNANCE: 4         |
-|                     +------------------------------------+ [ MISSILE RELEASE ] |
-|                     |                                    |                     |
-|                     |    [ ENGINE BOOST // KEY 'C' ]     | HULL IMPACT STRAIN  |
-|                     |       CLICK OR TOUCH TO BOOST      | HITS: 2 | IMP: 18.5 |
-+---------------------+------------------------------------+---------------------+
-```
-
 ### Key Instruments:
 1. **Persistent Header Mission Strip**:
    - Centered tactical callout badge: `[ CRAFT: X-TYPE // SECTOR C ]`.
@@ -112,7 +93,7 @@ Provides detailed engineering telemetry for 6-DOF thrusters and flight dynamics:
      - Lateral drift velocity (`GRebels.LateralVelocity`).
      - Vertical climb / dive rate (`GRebels.VerticalVelocity`).
 4. **Avionics & Link Diagnostics (Bottom)**:
-   - High-contrast, mathematically column-aligned avionics readouts (every label standardized to 21 monospace characters so all data values start at character coordinate 22):
+   - Avionics readouts:
      - **Active Craft & Sector**: Shows current ship name (`GRebels.VehicleName`) and venue (`GRebels.Location`).
      - **Packets Received**: Live count of total incoming UDP datagrams (`GRebels.PacketCount`).
      - **Stream Refresh Rate**: Live datagram rate in Hz (`GRebels.PacketRate`), typically ~60.0 Hz during active flight.

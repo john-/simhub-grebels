@@ -203,10 +203,14 @@ A high-contrast CRT cockpit flight director and engineering MFD tailored specifi
 ### Previews
 
 #### Screen 1: Tactical Flight HUD (Primary Flight Director)
-![Screen 1: Tactical Flight HUD](docs/tactical_hud_screen1.png)
+![Screen 1: Tactical Flight HUD](assets/demo_page1.gif)
+
+*[Static screenshot](docs/tactical_hud_screen1.png)*
 
 #### Screen 2: 6-DOF RCS & Systems Diagnostics (Engineering MFD)
-![Screen 2: 6-DOF RCS & Systems Diagnostics](docs/tactical_hud_screen2.png)
+![Screen 2: 6-DOF RCS & Systems Diagnostics](assets/demo_page2.gif)
+
+*[Static screenshot](docs/tactical_hud_screen2.png)*
 
 ### Quick Start
 1. Ensure SimHub is running.
